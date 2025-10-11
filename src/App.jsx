@@ -1,29 +1,33 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 
 export default function App() {
-  const [game, setGame] = useState(new Chess());
+  const gameRef = useRef(new Chess()); // persistent game instance
+  const [fen, setFen] = useState(gameRef.current.fen());
   const [moveHistory, setMoveHistory] = useState([]);
 
   function onDrop(sourceSquare, targetSquare) {
-    const next = new Chess(game.fen());
-    const move = next.move({ from: sourceSquare, to: targetSquare, promotion: "q" });
-    if (move === null) return false; // illegal move
-    setGame(next);
+    const move = gameRef.current.move({
+      from: sourceSquare,
+      to: targetSquare,
+      promotion: "q",
+    });
+    if (move === null) return false;
+    setFen(gameRef.current.fen());
     setMoveHistory((prev) => [...prev, move.san]);
     return true;
   }
 
   function resetGame() {
-    setGame(new Chess());
+    gameRef.current.reset();
+    setFen(gameRef.current.fen());
     setMoveHistory([]);
   }
 
   function undoMove() {
-    const next = new Chess(game.fen());
-    next.undo();
-    setGame(next);
+    gameRef.current.undo();
+    setFen(gameRef.current.fen());
     setMoveHistory((prev) => prev.slice(0, -1));
   }
 
@@ -34,8 +38,8 @@ export default function App() {
         <Chessboard
           id="ChessBoard"
           boardWidth={500}
-          position={game.fen()}
-          onPieceDrop={onDrop}      // This must be the correct v2+ callback
+          position={fen}
+          onPieceDrop={onDrop} // This must be the correct v2 callback
         />
         <div style={{ marginLeft: "20px", textAlign: "left" }}>
           <h2>Move History</h2>
