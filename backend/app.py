@@ -13,9 +13,7 @@ class BoardState(BaseModel):
 @app.post("/evalbar/")
 def eval_bar(board_state: BoardState):
     board = chess.Board(board_state.fen)
-    eval = chess.engine.SimpleEngine.popen_uci("/usr/local/bin/stockfish").analyse(
-        board, chess.engine.Limit(time=0.1)
-    )['score'].white().score(mate_score=10000)
+    eval = evaluate_board(board)
     return {"evaluation": eval}
 
 @app.post("/best-move/")
