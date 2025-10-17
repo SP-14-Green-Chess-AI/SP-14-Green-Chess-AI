@@ -3,7 +3,7 @@ import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 
 export default function App() {
-  const backendUrl = "http://127.0.0.1:8000";
+  const backendUrl = "https://sp-14-green-chess-ai.onrender.com";
   const gameRef = useRef(new Chess());
   const [fen, setFen] = useState(gameRef.current.fen());
   const [moveHistory, setMoveHistory] = useState([]);
@@ -66,44 +66,63 @@ export default function App() {
   }
 
   return (
-    <div style={{ maxWidth: "900px", margin: "50px auto", textAlign: "center" }}>
-      <h1>React Chess App</h1>
+    <div style={{ maxWidth: "900px", margin: "50px auto", fontFamily: "sans-serif" }}>
+  
+  {/* Header */}
+  <h1 style={{ textAlign: "center", marginBottom: "20px" }}>React Chess App</h1>
+
+  {/* Evaluation display */}
+  <div style={{ textAlign: "center", marginBottom: "20px" }}>
+    <strong>Evaluation:</strong> {evaluation !== null ? evaluation : "Loading..."}
+  </div>
+
+  {/* Board + side panel */}
+  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+    
+    {/* Left: Board + Dropdown */}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "15px" }}>
+      <Chessboard
+        id="ChessBoard"
+        boardWidth={500}
+        position={fen}
+        onPieceDrop={onDrop}
+      />
       
-      <div>
-        <strong>Evaluation:</strong> {evaluation !== null ? evaluation : "Loading..."}
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <Chessboard
-          id="ChessBoard"
-          boardWidth={500}
-          position={fen}
-          onPieceDrop={onDrop}
-        />
-
-        <div style={{ marginLeft: "20px", textAlign: "left" }}>
-          <h2>Move History</h2>
-          <div style={{ border: "1px solid #ccc", padding: "10px", height: "300px", overflowY: "scroll" }}>
-            {moveHistory.length > 0 ? (
-              <ol>{moveHistory.map((m, i) => <li key={i}>{m}</li>)}</ol>
-            ) : (
-              <p>No moves yet.</p>
-            )}
-          </div>
-
-          <button onClick={resetGame}>Reset Game</button>
-          <button onClick={undoMove} disabled={moveHistory.length === 0}>Undo Move</button>
-          <button onClick={makeEngineMove}>Make Engine Move</button>
-          
-            <div style={{ marginTop: "20px" }}>
-              <h3>Select Game Mode:</h3>
-              <select value={gamemode} onChange={(e) => setGamemode(e.target.value)}>
-                <option value="engine">Engine</option>
-                <option value="minimax">Minimax</option>
-              </select>
-            </div>
-        </div>
+      {/* Game Mode Dropdown below the board */}
+      <div style={{ textAlign: "center" }}>
+        <h3>Select Game Mode:</h3>
+        <select
+          value={gamemode}
+          onChange={(e) => setGamemode(e.target.value)}
+          style={{ padding: "6px", borderRadius: "5px" }}
+        >
+          <option value="engine">Engine</option>
+          <option value="minimax">Minimax</option>
+        </select>
       </div>
     </div>
+
+    {/* Right: Move History + Buttons */}
+    <div style={{ marginLeft: "20px", textAlign: "left" }}>
+      <h2>Move History</h2>
+      <div style={{
+        border: "1px solid #ccc",
+        padding: "10px",
+        height: "300px",
+        overflowY: "scroll"
+      }}>
+        {moveHistory.length > 0 ? (
+          <ol>{moveHistory.map((m, i) => <li key={i}>{m}</li>)}</ol>
+        ) : (
+          <p>No moves yet.</p>
+        )}
+      </div>
+
+      <button onClick={resetGame}>Reset Game</button>
+      <button onClick={undoMove} disabled={moveHistory.length === 0}>Undo Move</button>
+      <button onClick={makeEngineMove}>Make Engine Move</button>
+    </div>
+  </div>
+</div>
   );
 }
