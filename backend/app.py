@@ -1,11 +1,21 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import chess
-import chess.engine
+from fastapi.middleware.cors import CORSMiddleware
 from AIEngine import get_best_move, minimax, evaluate_board, get_opening_move
 
 app = FastAPI()
+orgins = ["https://sp-14-green-chess-ai.github.io/SP-14-Green-Chess-AI/", "http://localhost:5173/SP-14-Green-Chess-AI",
+              "http://localhost:5173"  # React dev server
 
+          ]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=orgins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 class BoardState(BaseModel):
     fen: str
     game_mode: str = "engine"  # "engine" or "minimax"
@@ -19,24 +29,33 @@ def eval_bar(board_state: BoardState):
 @app.post("/best-move/")
 def best_move(board_state: BoardState):
     board = chess.Board(board_state.fen)
+    if board.board_fen() == chess.STARTING_FEN:
+        opening_move = get_opening_move(board)
+        if opening_move:
+            return {"best_move": opening_move.uci()}
     if board_state.game_mode == "minimax":
-        move = get_opening_move(board)
-        if move:
-            return {"best_move": move.uci()}
-        best_move_result = None
-        best_value = float('-inf') if board.turn == chess.WHITE else float('inf')
+        depth = 4  # You can adjust the depth as needed
+        if board.turn == chess.WHITE:
+            best_eval = float('-inf')
+        else:
+            best_eval = float('inf')
+        best_move = None
         for move in board.legal_moves:
             board.push(move)
-            board_value = minimax(board, 3)
+            eval = minimax(board, depth - 1)
             board.pop()
-            if (board.turn == chess.WHITE and board_value > best_value) or \
-               (board.turn == chess.BLACK and board_value < best_value):
-                best_value = board_value
-                best_move_result = move
-        return {"best_move": best_move_result.uci() if best_move_result else None}
+            if board.turn == chess.WHITE and eval > best_eval:
+                best_eval = eval
+                best_move = move
+            elif board.turn == chess.BLACK and eval < best_eval:
+                best_eval = eval
+                best_move = move
+        return {"best_move": best_move.uci()}
+
     elif board_state.game_mode == "engine":
         move = get_best_move(board)
         return {"best_move": move.uci()}
+
     else:
         return {"error": "Invalid game mode. Choose 'engine' or 'minimax'."}
 @app.get("/")
