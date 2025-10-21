@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 import chess
 import chess.engine
@@ -42,3 +42,34 @@ def best_move(board_state: BoardState):
 @app.get("/")
 def root():
     return {"message": "Chess Engine API is running!"}
+# --- new section for multiplayer WebSocket ---
+from typing import List
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            await connection.send_json(message)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/chess")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            print("Received:", data)
+            # Expecting data like {"from": "e2", "to": "e4"}
+            await manager.broadcast(data)  # send move to all players
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)

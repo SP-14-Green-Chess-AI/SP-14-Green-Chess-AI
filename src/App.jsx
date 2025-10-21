@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect} from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 import { themes } from "./themes";
@@ -13,12 +13,37 @@ export default function App() {
   const [selectedPieceTheme, setSelectedPieceTheme] = useState("Classic");
   const [selectedBoardTheme, setSelectedBoardTheme] = useState("Sand");
   const [useDefaultPieces, setUseDefaultPieces] = useState(false); // New state for dropdown
+  const wsRef = useRef(null); // reference to WebSocket
+  useEffect(() => {
+  const ws = new WebSocket("ws://localhost:8000/ws/chess");
+  wsRef.current = ws;
+
+  ws.onopen = () => console.log("Connected to WebSocket server");
+
+  ws.onmessage = (event) => {
+    const moveData = JSON.parse(event.data);
+    const move = gameRef.current.move({ from: moveData.from, to: moveData.to, promotion: "q" });
+    if (move) {
+      setFen(gameRef.current.fen());
+      setMoveHistory(prev => [...prev, move.san]);
+    }
+  };
+
+  ws.onclose = () => console.log("Disconnected from WebSocket");
+
+  return () => ws.close();
+}, []);
+
 
   function onDrop(sourceSquare, targetSquare) {
     const move = gameRef.current.move({ from: sourceSquare, to: targetSquare, promotion: "q" });
     if (!move) return false;
     setFen(gameRef.current.fen());
     setMoveHistory(prev => [...prev, move.san]);
+    // Broadcast move to others
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ from: sourceSquare, to: targetSquare }));
+    }
     return true;
   }
 
