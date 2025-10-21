@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Python virtual environments
+backend/venv/
+venv/
+.env
+
+# Node.js
+node_modules/
+dist/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Other
+.DS_Store
