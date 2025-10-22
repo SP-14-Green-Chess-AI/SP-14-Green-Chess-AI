@@ -4,4 +4,3 @@ uvicorn
 python-chess
 chess
 torch
-os
