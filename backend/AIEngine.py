@@ -20,7 +20,7 @@ def get_best_move(board: chess.Board) -> chess.Move:
     if sys.platform == "win":
         engine_path = "engine/stockfish-windows-x86-64-avx2.exe"
     elif sys.platform == "linux":
-        engine_path = "engine/stockfish-ubuntu-20.04-x86-64-avx2"
+        engine_path = "engine/stockfish-ubuntu-x86-64-avx2"
     else:
         engine_path = "engine/stockfish-macos-m1-apple-silicon"
     engine = chess.engine.SimpleEngine.popen_uci(engine_path)
