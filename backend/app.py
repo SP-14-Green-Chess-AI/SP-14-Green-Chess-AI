@@ -5,8 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from AIEngine import get_best_move, minimax, evaluate_board, get_opening_move
 
 app = FastAPI()
-orgins = ["https://sp-14-green-chess-ai.github.io/SP-14-Green-Chess-AI/", "http://localhost:5173/SP-14-Green-Chess-AI",
-              "http://localhost:5173","https://sp-14-green-chess-ai.github.io"  # React dev server
+orgins = ["https://sp-14-green-chess-ai.github.io"  # React dev server
 
           ]
 app.add_middleware(
