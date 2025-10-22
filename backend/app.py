@@ -7,7 +7,8 @@ import os
 from AIEngine import get_best_move, minimax, evaluate_board, get_opening_move
 
 app = FastAPI()
-origins = ["https://sp-14-green-chess-ai.github.io","https://sp-14-green-chess-ai.github.io/SP-14-Green-Chess-AI/"  # React dev server
+origins = ["https://sp-14-green-chess-ai.github.io","https://sp-14-green-chess-ai.github.io/SP-14-Green-Chess-AI/", "http://localhost:5173/SP-14-Green-Chess-AI",
+           "http://localhost:5173" # React dev server
 
           ]
 app.add_middleware(
