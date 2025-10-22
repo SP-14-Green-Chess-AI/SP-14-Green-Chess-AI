@@ -36,7 +36,7 @@ def best_move(board_state: BoardState):
         if opening_move:
             return {"best_move": opening_move.uci()}
     if board_state.game_mode == "minimax":
-        depth = 4  # You can adjust the depth as needed
+        depth = 3  # You can adjust the depth as needed
         if board.turn == chess.WHITE:
             best_eval = float('-inf')
         else:
