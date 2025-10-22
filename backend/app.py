@@ -2,15 +2,17 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import chess
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+import os
 from AIEngine import get_best_move, minimax, evaluate_board, get_opening_move
 
 app = FastAPI()
-orgins = ["https://sp-14-green-chess-ai.github.io","https://sp-14-green-chess-ai.github.io/SP-14-Green-Chess-AI/"  # React dev server
+origins = ["https://sp-14-green-chess-ai.github.io","https://sp-14-green-chess-ai.github.io/SP-14-Green-Chess-AI/"  # React dev server
 
           ]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=orgins,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,3 +62,6 @@ def best_move(board_state: BoardState):
 @app.get("/")
 def root():
     return {"message": "Chess Engine API is running!"}
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))  # 8000 fallback for local dev
+    uvicorn.run(app, host="0.0.0.0", port=port)
