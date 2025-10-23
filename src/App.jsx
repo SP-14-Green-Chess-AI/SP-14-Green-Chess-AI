@@ -5,6 +5,7 @@ import { themes } from "./themes";
 import { boardThemes } from "./boardThemes";
 import { Bishop, Rook, Knight, Queen, King, Pawn } from "./components/Pieces";
 import { DefaultKing, DefaultQueen, DefaultRook, DefaultBishop, DefaultKnight, DefaultPawn } from "./components/DefaultPieces";
+import useMultiplayer from "./hooks/useMultiplayer"; // ✅ Import the hook
 
 export default function App() {
   const backendUrl = "http://localhost:8000";
@@ -22,66 +23,19 @@ export default function App() {
   const [availableRooms, setAvailableRooms] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState("");
   const [roomInput, setRoomInput] = useState("");
-  const wsRef = useRef(null);
+  const wsRef = useRef(null)
 
-  useEffect(() => {
-    let interval;
-    if (playMode === "multiplayer") {
-      const fetchRooms = () => {
-        fetch(`${backendUrl}/waiting-rooms/`)
-          .then(res => res.json())
-          .then(data => setAvailableRooms(data.rooms))
-          .catch(err => console.error("Failed to fetch rooms:", err));
-      };
-      fetchRooms();
-      interval = setInterval(fetchRooms, 5000);
-    }
-    return () => clearInterval(interval);
-  }, [playMode]);
-
-  useEffect(() => {
-    if (playMode === "multiplayer" && selectedRoom) {
-      const ws = new WebSocket(`ws://localhost:8000/ws/chess/${selectedRoom}`);
-      wsRef.current = ws;
-
-      ws.onopen = () => console.log("Connected to WebSocket server");
-
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-
-        if (data.error === "Game is full") {
-          alert("This room is full. Try another.");
-          ws.close();
-          return;
-        }
-
-        if (data.type === "color_assignment") {
-          setPlayerColor(data.color);
-          console.log(`You are playing as ${data.color}`);
-          return;
-        }
-
-        if (data.from && data.to) {
-          const move = gameRef.current.move({
-            from: data.from,
-            to: data.to,
-            promotion: "q"
-          });
-          if (move) {
-            setFen(gameRef.current.fen());
-            setMoveHistory(prev => [...prev, move.san]);
-          }
-        }
-      };
-
-      ws.onclose = () => {
-        console.log("Disconnected from WebSocket");
-        setPlayerColor(null);
-      };
-
-      return () => ws.close();
-    }
-  }, [playMode, selectedRoom]);
+ useMultiplayer({
+    playMode,
+    selectedRoom,
+    backendUrl,
+    gameRef,
+    wsRef,
+    setAvailableRooms,
+    setPlayerColor,
+    setFen,
+    setMoveHistory,
+  });
 
   useEffect(() => {
     const fetchEval = async () => {
