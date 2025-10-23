@@ -11,6 +11,7 @@ export default function App() {
   const gameRef = useRef(new Chess());
   const [fen, setFen] = useState(gameRef.current.fen());
   const [moveHistory, setMoveHistory] = useState([]);
+  const [boardOrientation, setOrientation] = useState("white");
   const [selectedPieceTheme, setSelectedPieceTheme] = useState("Classic");
   const [selectedBoardTheme, setSelectedBoardTheme] = useState("Sand");
   const [useDefaultPieces, setUseDefaultPieces] = useState(false);
@@ -142,7 +143,9 @@ export default function App() {
     setFen(gameRef.current.fen());
     setMoveHistory(prev => prev.slice(0, -1));
   }
-
+  function flipBoard() {
+    setOrientation(prev => (prev === "white" ? "black" : "white"));
+  }
   function makeEngineMove() {
     fetch(`${backendUrl}/best-move`, {
       method: "POST",
@@ -283,19 +286,21 @@ export default function App() {
           <strong>Evaluation:</strong> {evaluation !== null ? evaluation : "Loading..."}
         </div>
       )}
-
+       
+        <button onClick={flipBoard} style={{ height: "40px", alignSelf: "center" }}>Flip Board</button>
+        
       {/* Board and Move History */}
       <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: "40px" }}>
         <Chessboard
           id="ChessBoard"
           boardWidth={600}
           position={fen}
+          boardOrientation= {boardOrientation}
           onPieceDrop={onDrop}
           customPieces={customPieces}
           customDarkSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.dark }}
           customLightSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.light }}
         />
-
         <div style={{ textAlign: "left" }}>
           <h2>Move History</h2>
           <div style={{
