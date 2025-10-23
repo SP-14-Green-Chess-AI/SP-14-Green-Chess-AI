@@ -1,9 +1,8 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-import chess
 from fastapi.middleware.cors import CORSMiddleware
 from AIEngine import get_best_move, minimax, evaluate_board, get_opening_move
-
+import chess
 app = FastAPI()
 
 # CORS setup

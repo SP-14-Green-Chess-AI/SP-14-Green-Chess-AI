@@ -17,7 +17,7 @@ def get_opening_move(board):
     return None
 
 def get_best_move(board: chess.Board) -> chess.Move:
-    if sys.platform == "win":
+    if sys.platform.startswith("win"):
         engine_path = "engine/stockfish-windows-x86-64-avx2.exe"
     elif sys.platform == "linux":
         engine_path = "engine/stockfish-ubuntu-x86-64-avx2"
