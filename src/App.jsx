@@ -5,10 +5,10 @@ import { themes } from "./themes";
 import { boardThemes } from "./boardThemes";
 import { Bishop, Rook, Knight, Queen, King, Pawn } from "./components/Pieces";
 import { DefaultKing, DefaultQueen, DefaultRook, DefaultBishop, DefaultKnight, DefaultPawn } from "./components/DefaultPieces";
-import useMultiplayer from "./hooks/useMultiplayer"; // ✅ Import the hook
+import useMultiplayer from "./hooks/useMultiplayer"; 
 
 export default function App() {
-  const backendUrl = "http://localhost:8000";
+  const backendUrl = "https://sp-14-green-chess-ai.onrender.com";
   const gameRef = useRef(new Chess());
   const [fen, setFen] = useState(gameRef.current.fen());
   const [moveHistory, setMoveHistory] = useState([]);
