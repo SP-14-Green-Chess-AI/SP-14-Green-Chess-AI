@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 import { themes } from "./themes";
-import { boardThemes } from "./boardThemes";
+import { boardThemes,getCustomPieces} from "./components/boardThemes";
 import { Bishop, Rook, Knight, Queen, King, Pawn } from "./components/Pieces";
 import { DefaultKing, DefaultQueen, DefaultRook, DefaultBishop, DefaultKnight, DefaultPawn } from "./components/DefaultPieces";
-import useMultiplayer from "./hooks/useMultiplayer"; 
+import useMultiplayer from "./components/useMultiplayer"; 
 
 export default function App() {
   const backendUrl = "https://sp-14-green-chess-ai.onrender.com";
@@ -24,6 +24,10 @@ export default function App() {
   const [selectedRoom, setSelectedRoom] = useState("");
   const [roomInput, setRoomInput] = useState("");
   const wsRef = useRef(null)
+  const customPieces = React.useMemo(
+    () => getCustomPieces(useDefaultPieces, selectedPieceTheme, themes),
+    [useDefaultPieces, selectedPieceTheme]
+  );
 
  useMultiplayer({
     playMode,
@@ -117,35 +121,7 @@ export default function App() {
       .catch((err) => console.error("Error making engine move:", err));
   }
 
-  const customPieces = useDefaultPieces
-    ? {
-        wB: ({ squareWidth }) => <DefaultBishop color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bB: ({ squareWidth }) => <DefaultBishop color="black" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        wN: ({ squareWidth }) => <DefaultKnight color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bN: ({ squareWidth }) => <DefaultKnight color="black" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        wR: ({ squareWidth }) => <DefaultRook color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bR: ({ squareWidth }) => <DefaultRook color="black" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        wQ: ({ squareWidth }) => <DefaultQueen color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bQ: ({ squareWidth }) => <DefaultQueen color="black" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        wK: ({ squareWidth }) => <DefaultKing color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bK: ({ squareWidth }) => <DefaultKing color="black" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        wP: ({ squareWidth }) => <DefaultPawn color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bP: ({ squareWidth }) => <DefaultPawn color="black" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-      }
-    : {
-        wB: ({ squareWidth }) => <Bishop color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bB: ({ squareWidth }) => <Bishop color="black" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        wN: ({ squareWidth }) => <Knight color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bN: ({ squareWidth }) => <Knight color="black" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        wR: ({ squareWidth }) => <Rook color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bR: ({ squareWidth }) => <Rook color="black" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        wQ: ({ squareWidth }) => <Queen color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bQ: ({ squareWidth }) => <Queen color="black" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        wK: ({ squareWidth }) => <King color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bK: ({ squareWidth }) => <King color="black" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        wP: ({ squareWidth }) => <Pawn color="white" squareWidth={squareWidth} theme={themes[selectedPieceTheme]} />,
-        bP: ({ squareWidth }) => <Pawn color="black" squareWidth={squareWidth}  theme={themes[selectedPieceTheme]} />,
-        };
+
       return (
     <div style={{ maxWidth: "1200px", margin: "50px auto", textAlign: "center" }}>
       <h1>React Chess App</h1>

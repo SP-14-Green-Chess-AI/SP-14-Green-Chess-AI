@@ -8,7 +8,8 @@ app = FastAPI()
 # CORS setup
 origins = [
     "https://sp-14-green-chess-ai.github.io",
-    "http://localhost:5173/SP-14-Green-Chess-AI",
+"https://sp-14-green-chess-ai.github.io/SP-14-Green-Chess-AI",
+ "http://localhost:5173/SP-14-Green-Chess-AI",
     "http://localhost:5173",
     "http://localhost:5179"
 ]
