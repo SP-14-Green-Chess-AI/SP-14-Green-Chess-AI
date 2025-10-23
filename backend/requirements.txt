@@ -1,0 +1,6 @@
+fastapi
+numpy
+uvicorn
+python-chess
+chess
+torch
