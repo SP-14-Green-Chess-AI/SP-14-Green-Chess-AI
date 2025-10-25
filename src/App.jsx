@@ -285,18 +285,19 @@ export default function App() {
             }}
           >
             {moveHistory.length ? (
-              <ol>
-                {moveHistory.reduce((acc, move, i) => {
-                  if (i % 2 === 0) acc.push([move]);
-                  else acc[acc.length - 1].push(move);
-                  return acc;
-                }, []).map((pair, i) => (
-                  <li key={i}>{`${i + 1}. ${pair[0]} ${pair[1] || ""}`}</li>
-                ))}
-              </ol>
-            ) : (
-              <p>No moves yet.</p>
-            )}
+            <ol>
+              {moveHistory.reduce((acc, move, i) => {
+                if (i % 2 === 0) acc.push([move]);
+                else acc[acc.length - 1].push(move);
+                return acc;
+              }, []).map((pair, i) => (
+                <li key={i}>{`${pair[0]} ${pair[1] || ""}`}</li>  // remove i + 1.
+                // or just <li key={i}>{pair.join(" ")}</li>
+              ))}
+            </ol>
+          ) : (
+            <p>No moves yet.</p>
+          )}
           </div>
           <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "10px" }}>
             <button onClick={resetGame}>Reset Game</button>
