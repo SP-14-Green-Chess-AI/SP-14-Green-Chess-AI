@@ -89,7 +89,6 @@ def eval_bar(board_state: BoardState):
     eval = evaluate_board(board)
     return {"evaluation": eval}
 
-# Best move endpoint
 @app.post("/best-move/")
 def best_move(board_state: BoardState):
     board = chess.Board(board_state.fen)
@@ -97,27 +96,27 @@ def best_move(board_state: BoardState):
         opening_move = get_opening_move(board)
         if opening_move:
             return {"best_move": opening_move.uci()}
-
     if board_state.game_mode == "minimax":
-        depth = 4
-        best_eval = float('-inf') if board.turn == chess.WHITE else float('inf')
-        best_move_found = None
+        depth = 3
+        if board.turn == chess.WHITE:
+            best_eval = float('-inf')
+        else:
+            best_eval = float('inf')
+        best_move = None
         for move in board.legal_moves:
             board.push(move)
             eval = minimax(board, depth - 1)
             board.pop()
             if board.turn == chess.WHITE and eval > best_eval:
                 best_eval = eval
-                best_move_found = move
+                best_move = move
             elif board.turn == chess.BLACK and eval < best_eval:
                 best_eval = eval
-                best_move_found = move
-        return {"best_move": best_move_found.uci()}
-
+                best_move = move
+        return {"best_move": best_move.uci(), "promotion": best_move.promotion.uci() if best_move.promotion else None}
     elif board_state.game_mode == "engine":
         move = get_best_move(board)
-        return {"best_move": move.uci()}
-
+        return {"best_move": move.uci(), "promotion": move.promotion.uci() if move.promotion else None}
     else:
         return {"error": "Invalid game mode. Choose 'engine' or 'minimax'."}
 
