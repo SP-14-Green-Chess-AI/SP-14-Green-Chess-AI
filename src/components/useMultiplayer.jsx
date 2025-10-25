@@ -27,7 +27,7 @@ export default function useMultiplayer({
       setMoveHistory([]);
       return;
     }
-
+    // Fetching available games when not joining a specific game list
     let interval;
     if (!gameId) {
       const fetchGames = async () => {
@@ -43,7 +43,7 @@ export default function useMultiplayer({
       fetchGames();
       interval = setInterval(fetchGames, 10000);
     }
-
+    // Joining a specific game
     if (gameId) {
       const initGameState = async () => {
         try {
@@ -60,8 +60,9 @@ export default function useMultiplayer({
           setGameStatus(err.message);
         }
       };
+      // Initial game state fetch
       initGameState();
-
+      // Setup WebSocket connection
       let clientId = localStorage.getItem('clientId');
       if (!clientId) {
         clientId = crypto.randomUUID();
@@ -76,7 +77,7 @@ export default function useMultiplayer({
       wsRef.current.onopen = () => {
         console.log(`Connected to WebSocket for game ${gameId} as client ${clientId}`);
       };
-
+      // Handle incoming messages fromn cilent server
       wsRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
         console.log('WebSocket message:', data);
