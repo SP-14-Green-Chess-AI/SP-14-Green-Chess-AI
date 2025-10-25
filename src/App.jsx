@@ -8,7 +8,7 @@ import { Bishop, Rook, Knight, Queen, King, Pawn } from "./components/Pieces";
 import { DefaultKing, DefaultQueen, DefaultRook, DefaultBishop, DefaultKnight, DefaultPawn } from "./components/DefaultPieces";
 
 export default function App() {
-  const backendUrl = "http://localhost:8000"; // Fix HTTPS typo
+  const backendUrl = "http://localhost:8000"; // Fixed typo
   const gameRef = useRef(new Chess());
   const wsRef = useRef(null);
   const [fen, setFen] = useState(gameRef.current.fen());
@@ -25,27 +25,29 @@ export default function App() {
   const [selectedBoardTheme, setSelectedBoardTheme] = useState("Sand");
   const [useDefaultPieces, setUseDefaultPieces] = useState(false);
   const [evaluation, setEvaluation] = useState(null);
-  // Add chat-related state
   const [chatMessages, setChatMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
-  const [username, setUsername] = useState("Anonymous");
+  const [username, setUsername] = useState(() => localStorage.getItem("chessUsername") || "Anonymous");
+  const [chatError, setChatError] = useState("");
   const messagesEndRef = useRef(null);
 
-  // Scroll to bottom of chat when new messages arrive
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
+  // Scroll to bottom of chat
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
+  // Save username to localStorage
+  useEffect(() => {
+    localStorage.setItem("chessUsername", username);
+  }, [username]);
+
+  // Memoize custom pieces
   const customPieces = React.useMemo(
     () => getCustomPieces(useDefaultPieces, selectedPieceTheme, themes),
     [useDefaultPieces, selectedPieceTheme]
   );
 
-  // Pass all necessary multiplayer props
+  // Multiplayer hook
   useMultiplayer({
     playMode,
     gameId,
@@ -57,7 +59,7 @@ export default function App() {
     setMoveHistory,
     setGameStatus,
     setAvailableGames,
-    setChatMessages, // Add to hook for WebSocket handling
+    setChatMessages,
   });
 
   // Fetch evaluation for engine mode
@@ -121,7 +123,7 @@ export default function App() {
     setFen(gameRef.current.fen());
     setMoveHistory([]);
     setGameStatus("");
-    setChatMessages([]); // Clear chat on reset
+    setChatMessages([]);
     if (playMode === "multiplayer" && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "reset" }));
     }
@@ -155,20 +157,34 @@ export default function App() {
   }
 
   function sendChatMessage() {
-    if (messageText.trim() && playMode === "multiplayer" && wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: "chat",
-          username,
-          message: messageText,
-        })
-      );
-      setMessageText("");
+    if (!messageText.trim()) {
+      setChatError("Message cannot be empty");
+      setTimeout(() => setChatError(""), 3000);
+      return;
     }
+    if (playMode !== "multiplayer") {
+      setChatError("Chat available in multiplayer mode only");
+      setTimeout(() => setChatError(""), 3000);
+      return;
+    }
+    if (wsRef.current?.readyState !== WebSocket.OPEN) {
+      setChatError("Not connected to game");
+      setTimeout(() => setChatError(""), 3000);
+      return;
+    }
+    wsRef.current.send(
+      JSON.stringify({
+        type: "chat",
+        username: username || "Anonymous",
+        message: messageText,
+      })
+    );
+    setMessageText("");
+    setChatError("");
   }
 
   return (
-    <div style={{ maxWidth: "1200px", margin: "50px auto", textAlign: "center" }}>
+    <div style={{ maxWidth: "1200px", margin: "20px auto", textAlign: "center" }}>
       <h1>React Chess App</h1>
 
       {/* Play Mode Selection */}
@@ -215,7 +231,7 @@ export default function App() {
               value={gameIdInput}
               onChange={(e) => setGameIdInput(e.target.value)}
               placeholder="e.g., game123"
-              style={{ marginLeft: "10px" }}
+              style={{ marginLeft: "10px", padding: "5px" }}
             />
             <button
               onClick={() => {
@@ -224,14 +240,14 @@ export default function App() {
                   setGameIdInput("");
                 }
               }}
-              style={{ marginLeft: "10px" }}
+              style={{ marginLeft: "10px", padding: "5px 10px" }}
             >
               Join
             </button>
           </div>
           <button
             onClick={() => setGameId(crypto.randomUUID())}
-            style={{ marginTop: "10px" }}
+            style={{ marginTop: "10px", padding: "5px 10px" }}
           >
             Create New Game
           </button>
@@ -244,7 +260,7 @@ export default function App() {
       )}
 
       {/* Theme Selectors */}
-      <div style={{ marginBottom: "20px", display: "flex", justifyContent: "center", gap: "30px" }}>
+      <div style={{ marginBottom: "20px", display: "flex", justifyContent: "center", gap: "20px" }}>
         <div>
           <label>Piece Style: </label>
           <select
@@ -287,12 +303,13 @@ export default function App() {
         </div>
       )}
 
-      {/* Chessboard, Move History, and Chat */}
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: "40px" }}>
+      {/* Main Layout */}
+      <div style={{ display: "flex", justifyContent: "center", gap: "20px", flexWrap: "wrap" }}>
+        {/* Chessboard */}
         <div>
           <Chessboard
             id="chessboard"
-            boardWidth={600}
+            boardWidth={500} // Reduced to fit chat
             position={fen}
             boardOrientation={boardOrientation}
             onPieceDrop={onDrop}
@@ -300,81 +317,91 @@ export default function App() {
             customDarkSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.dark }}
             customLightSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.light }}
           />
-          <button onClick={flipBoard} style={{ marginTop: "10px", height: "40px" }}>
+          <button onClick={flipBoard} style={{ marginTop: "10px", padding: "5px 10px" }}>
             Flip Board
           </button>
         </div>
-        <div style={{ textAlign: "left", width: "250px" }}>
-          <h2>Move History</h2>
+
+        {/* Move History and Controls */}
+        <div style={{ width: "200px" }}>
+          <h3>Move History</h3>
           <div
             style={{
               border: "1px solid #ccc",
               padding: "10px",
-              height: "200px",
+              height: "150px",
               overflowY: "scroll",
+              marginBottom: "10px",
             }}
           >
             {moveHistory.length ? (
-              <ol>
+              <ol style={{ margin: 0, paddingLeft: "20px" }}>
                 {moveHistory.reduce((acc, move, i) => {
                   if (i % 2 === 0) acc.push([move]);
                   else acc[acc.length - 1].push(move);
                   return acc;
                 }, []).map((pair, i) => (
-                  <li key={i}>{pair.join(" ")}</li>
+                  <li key={i} style={{ marginBottom: "5px" }}>{pair.join(" ")}</li>
                 ))}
               </ol>
             ) : (
               <p>No moves yet.</p>
             )}
           </div>
-          <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            <button onClick={resetGame}>Reset Game</button>
-            <button onClick={undoMove} disabled={!moveHistory.length}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <button onClick={resetGame} style={{ padding: "5px 10px" }}>
+              Reset Game
+            </button>
+            <button
+              onClick={undoMove}
+              disabled={!moveHistory.length}
+              style={{ padding: "5px 10px" }}
+            >
               Undo Move
             </button>
             {playMode === "engine" && (
               <>
-                <button onClick={makeEngineMove}>Make Engine Move</button>
-                <div style={{ marginTop: "10px" }}>
-                  <label>
-                    <strong>Engine Mode: </strong>
-                  </label>
-                  <select value={gamemode} onChange={(e) => setGamemode(e.target.value)}>
-                    <option value="engine">Stockfish Engine</option>
-                    <option value="minimax">Minimax</option>
-                  </select>
-                </div>
+                <button onClick={makeEngineMove} style={{ padding: "5px 10px" }}>
+                  Make Engine Move
+                </button>
+                <select
+                  value={gamemode}
+                  onChange={(e) => setGamemode(e.target.value)}
+                  style={{ padding: "5px", marginTop: "8px" }}
+                >
+                  <option value="engine">Stockfish Engine</option>
+                  <option value="minimax">Minimax</option>
+                </select>
               </>
             )}
           </div>
         </div>
+
         {/* Chat Section */}
         {playMode === "multiplayer" && (
-          <div style={{ textAlign: "left", width: "250px" }}>
-            <h2>Chat</h2>
-            <div style={{ marginBottom: "10px" }}>
-              <input
-                type="text"
-                placeholder="Your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                style={{ width: "100%", padding: "5px" }}
-              />
-            </div>
+          <div style={{ width: "200px" }}>
+            <h3>Chat</h3>
+            <input
+              type="text"
+              placeholder="Your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              style={{ width: "100%", padding: "5px", marginBottom: "10px" }}
+            />
             <div
               style={{
                 border: "1px solid #ccc",
                 padding: "10px",
-                height: "200px",
+                height: "150px",
                 overflowY: "scroll",
+                marginBottom: "10px",
               }}
             >
               {chatMessages.length ? (
                 chatMessages.map((msg, index) => (
-                  <div key={index} style={{ marginBottom: "8px" }}>
+                  <div key={index} style={{ marginBottom: "8px", fontSize: "14px" }}>
                     <strong>{msg.username}:</strong> {msg.message}
-                    <small style={{ color: "gray", marginLeft: "10px" }}>
+                    <small style={{ color: "gray", display: "block" }}>
                       {new Date(msg.timestamp).toLocaleTimeString()}
                     </small>
                   </div>
@@ -384,16 +411,23 @@ export default function App() {
               )}
               <div ref={messagesEndRef} />
             </div>
-            <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
+            {chatError && (
+              <div style={{ color: "red", fontSize: "12px", marginBottom: "8px" }}>
+                {chatError}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: "8px" }}>
               <input
                 type="text"
-                placeholder="Type a message..."
+                placeholder="Message..."
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
-              
+                onKeyPress={(e) => e.key === "Enter" && sendChatMessage()}
                 style={{ flex: 1, padding: "5px" }}
               />
-              <button onClick={sendChatMessage}>Send</button>
+              <button onClick={sendChatMessage} style={{ padding: "5px 10px" }}>
+                Send
+              </button>
             </div>
           </div>
         )}
