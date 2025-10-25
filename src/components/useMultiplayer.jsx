@@ -1,6 +1,5 @@
-// components/useMultiplayer.jsx
-import { useEffect } from 'react';
-import { Chess } from 'chess.js';
+import { useEffect } from "react";
+import { v4 as uuidv4 } from "uuid";
 
 export default function useMultiplayer({
   playMode,
@@ -13,142 +12,66 @@ export default function useMultiplayer({
   setMoveHistory,
   setGameStatus,
   setAvailableGames,
+  setChatMessages, // Add to handle chat
 }) {
   useEffect(() => {
-    if (playMode !== 'multiplayer') {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      setPlayerColor(null);
-      setAvailableGames([]);
-      setGameStatus('');
-      setFen(gameRef.current.fen());
-      setMoveHistory([]);
-      return;
-    }
-    // Fetching available games when not joining a specific game list
-    let interval;
-    if (!gameId) {
-      const fetchGames = async () => {
+    if (playMode !== "multiplayer" || !gameId) return;
+
+    const clientId = uuidv4();
+    const ws = new WebSocket(`${backendUrl.replace("http", "ws")}/ws/chess/${gameId}?client_id=${clientId}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log(`Connected to game ${gameId} as client ${clientId}`);
+      // Fetch available games
+      fetch(`${backendUrl}/waiting-games/`)
+        .then((res) => res.json())
+        .then((data) => setAvailableGames(data.games))
+        .catch((err) => console.error("Error fetching games:", err));
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log("Received:", data);
+
+      if (data.type === "init") {
+        setPlayerColor(data.color);
+        setFen(data.fen);
+        setMoveHistory(data.move_history);
+        setGameStatus(data.status);
+        setChatMessages(data.chat_messages || []); // Initialize chat
+      } else if (data.type === "move") {
         try {
-          const res = await fetch(`${backendUrl}/waiting-games/`);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          setAvailableGames(data.games || []);
+          const move = gameRef.current.move({
+            from: data.from,
+            to: data.to,
+            promotion: data.promotion || "q",
+          });
+          if (move) {
+            setFen(gameRef.current.fen());
+            setMoveHistory((prev) => [...prev, move.san]);
+            setGameStatus(data.status);
+          }
         } catch (err) {
-          console.error('Failed to fetch games:', err);
+          console.error("Error processing move:", err);
         }
-      };
-      fetchGames();
-      interval = setInterval(fetchGames, 10000);
-    }
-    // Joining a specific game
-    if (gameId) {
-      const initGameState = async () => {
-        try {
-          const res = await fetch(`${backendUrl}/join-game/${gameId}`);
-          if (!res.ok) throw new Error('Failed to join game. Try another ID.');
-          const data = await res.json();
-          gameRef.current = new Chess(data.fen);
-          setFen(data.fen);
-          setMoveHistory(data.move_history || []);
-          setGameStatus(data.status || 'ongoing');
-          console.log('Loaded game state:', data);
-        } catch (err) {
-          console.error('Failed to join game:', err);
-          setGameStatus(err.message);
-        }
-      };
-      // Initial game state fetch
-      initGameState();
-      // Setup WebSocket connection
-      let clientId = localStorage.getItem('clientId');
-      if (!clientId) {
-        clientId = crypto.randomUUID();
-        localStorage.setItem('clientId', clientId);
+      } else if (data.type === "chat") {
+        setChatMessages((prev) => [...prev, data.message]); // Add new chat message
+      } else if (data.type === "error") {
+        console.error("WebSocket error:", data.message);
       }
+    };
 
-      const wsBaseUrl = backendUrl.includes('localhost')
-        ? 'ws://localhost:8000'
-        : 'wss://sp-14-green-chess-ai.onrender.com';
-      wsRef.current = new WebSocket(`${wsBaseUrl}/ws/chess/${gameId}?client_id=${clientId}`);
+    ws.onclose = () => {
+      console.log(`Disconnected from game ${gameId}`);
+    };
 
-      wsRef.current.onopen = () => {
-        console.log(`Connected to WebSocket for game ${gameId} as client ${clientId}`);
-      };
-      // Handle incoming messages fromn cilent server
-      wsRef.current.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log('WebSocket message:', data);
-
-        if (data.type === 'error') {
-          console.error('Server error:', data.message);
-          setGameStatus(`Failed to join game: ${data.message}`);
-          wsRef.current.close();
-          return;
-        }
-
-        if (data.type === 'init') {
-          try {
-            gameRef.current = new Chess(data.fen);
-            setFen(data.fen);
-            setMoveHistory(data.move_history || []);
-            setGameStatus(data.status || 'ongoing');
-            setPlayerColor(data.color);
-            console.log(`Initialized game ${gameId}: FEN=${data.fen}, Color=${data.color}`);
-          } catch (err) {
-            console.error('Invalid FEN:', err);
-            initGameState();
-          }
-        }
-
-        if (data.type === 'move') {
-          try {
-            const move = gameRef.current.move({
-              from: data.from,
-              to: data.to,
-              promotion: data.promotion || 'q',
-            });
-            if (move) {
-              setFen(gameRef.current.fen());
-              setMoveHistory((prev) => [...prev, move.san]);
-              setGameStatus(data.status || 'ongoing');
-              console.log(`Applied move: ${move.san}`);
-            }
-          } catch (err) {
-            console.error('Move error:', err);
-            initGameState();
-          }
-        }
-      };
-
-      wsRef.current.onclose = (event) => {
-        console.log(`WebSocket closed for game ${gameId}: code=${event.code}, reason=${event.reason}`);
-        setPlayerColor(null);
-        setGameStatus('Disconnected');
-      };
-
-      wsRef.current.onerror = (err) => {
-        console.error('WebSocket error:', err);
-        setGameStatus('Failed to connect to game server');
-      };
-    }
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
 
     return () => {
-      if (interval) clearInterval(interval);
-      if (wsRef.current) wsRef.current.close();
+      ws.close();
     };
-  }, [
-    playMode,
-    gameId,
-    backendUrl,
-    gameRef,
-    wsRef,
-    setPlayerColor,
-    setFen,
-    setMoveHistory,
-    setGameStatus,
-    setAvailableGames,
-  ]);
+  }, [playMode, gameId, backendUrl, gameRef, setPlayerColor, setFen, setMoveHistory, setGameStatus, setAvailableGames, setChatMessages]);
 }

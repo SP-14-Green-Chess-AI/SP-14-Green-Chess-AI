@@ -1,4 +1,3 @@
-// App.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
@@ -9,8 +8,7 @@ import { Bishop, Rook, Knight, Queen, King, Pawn } from "./components/Pieces";
 import { DefaultKing, DefaultQueen, DefaultRook, DefaultBishop, DefaultKnight, DefaultPawn } from "./components/DefaultPieces";
 
 export default function App() {
-  // Use production backend URL from the second file
-  const backendUrl = "httpss://localhost:8000";
+  const backendUrl = "http://localhost:8000"; // Fix HTTPS typo
   const gameRef = useRef(new Chess());
   const wsRef = useRef(null);
   const [fen, setFen] = useState(gameRef.current.fen());
@@ -27,14 +25,27 @@ export default function App() {
   const [selectedBoardTheme, setSelectedBoardTheme] = useState("Sand");
   const [useDefaultPieces, setUseDefaultPieces] = useState(false);
   const [evaluation, setEvaluation] = useState(null);
+  // Add chat-related state
+  const [chatMessages, setChatMessages] = useState([]);
+  const [messageText, setMessageText] = useState("");
+  const [username, setUsername] = useState("Anonymous");
+  const messagesEndRef = useRef(null);
 
-  // Memoize custom pieces for performance
+  // Scroll to bottom of chat when new messages arrive
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [chatMessages]);
+
   const customPieces = React.useMemo(
     () => getCustomPieces(useDefaultPieces, selectedPieceTheme, themes),
     [useDefaultPieces, selectedPieceTheme]
   );
 
-  // Pass all necessary multiplayer props, using gameId instead of selectedRoom for consistency
+  // Pass all necessary multiplayer props
   useMultiplayer({
     playMode,
     gameId,
@@ -46,6 +57,7 @@ export default function App() {
     setMoveHistory,
     setGameStatus,
     setAvailableGames,
+    setChatMessages, // Add to hook for WebSocket handling
   });
 
   // Fetch evaluation for engine mode
@@ -71,7 +83,6 @@ export default function App() {
   }, [fen, playMode, backendUrl]);
 
   function onDrop(source, target) {
-    // Check game status and player turn for multiplayer
     if (gameStatus !== "ongoing" && playMode === "multiplayer") {
       console.log("Game over:", gameStatus);
       return false;
@@ -110,6 +121,7 @@ export default function App() {
     setFen(gameRef.current.fen());
     setMoveHistory([]);
     setGameStatus("");
+    setChatMessages([]); // Clear chat on reset
     if (playMode === "multiplayer" && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "reset" }));
     }
@@ -142,13 +154,28 @@ export default function App() {
       .catch((err) => console.error("Error making engine move:", err));
   }
 
+  function sendChatMessage() {
+    if (messageText.trim() && playMode === "multiplayer" && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: "chat",
+          username,
+          message: messageText,
+        })
+      );
+      setMessageText("");
+    }
+  }
+
   return (
     <div style={{ maxWidth: "1200px", margin: "50px auto", textAlign: "center" }}>
       <h1>React Chess App</h1>
 
       {/* Play Mode Selection */}
       <div style={{ marginBottom: "20px" }}>
-        <label><strong>Play Mode: </strong></label>
+        <label>
+          <strong>Play Mode: </strong>
+        </label>
         <select value={playMode} onChange={(e) => setPlayMode(e.target.value)}>
           <option value="local">Local (2 Players)</option>
           <option value="engine">vs Engine</option>
@@ -170,7 +197,9 @@ export default function App() {
             </div>
           )}
           <div>
-            <label><strong>Join Game: </strong></label>
+            <label>
+              <strong>Join Game: </strong>
+            </label>
             <select value={gameId} onChange={(e) => setGameId(e.target.value)}>
               <option value="">Select a game</option>
               {availableGames.map((id) => (
@@ -179,7 +208,9 @@ export default function App() {
             </select>
           </div>
           <div style={{ marginTop: "10px" }}>
-            <label><strong>Or enter Game ID: </strong></label>
+            <label>
+              <strong>Or enter Game ID: </strong>
+            </label>
             <input
               value={gameIdInput}
               onChange={(e) => setGameIdInput(e.target.value)}
@@ -256,7 +287,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Chessboard and Controls */}
+      {/* Chessboard, Move History, and Chat */}
       <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: "40px" }}>
         <div>
           <Chessboard
@@ -273,31 +304,29 @@ export default function App() {
             Flip Board
           </button>
         </div>
-        <div style={{ textAlign: "left" }}>
+        <div style={{ textAlign: "left", width: "250px" }}>
           <h2>Move History</h2>
           <div
             style={{
               border: "1px solid #ccc",
               padding: "10px",
-              height: "400px",
+              height: "200px",
               overflowY: "scroll",
-              width: "250px",
             }}
           >
             {moveHistory.length ? (
-            <ol>
-              {moveHistory.reduce((acc, move, i) => {
-                if (i % 2 === 0) acc.push([move]);
-                else acc[acc.length - 1].push(move);
-                return acc;
-              }, []).map((pair, i) => (
-                <li key={i}>{`${pair[0]} ${pair[1] || ""}`}</li>  // remove i + 1.
-                // or just <li key={i}>{pair.join(" ")}</li>
-              ))}
-            </ol>
-          ) : (
-            <p>No moves yet.</p>
-          )}
+              <ol>
+                {moveHistory.reduce((acc, move, i) => {
+                  if (i % 2 === 0) acc.push([move]);
+                  else acc[acc.length - 1].push(move);
+                  return acc;
+                }, []).map((pair, i) => (
+                  <li key={i}>{pair.join(" ")}</li>
+                ))}
+              </ol>
+            ) : (
+              <p>No moves yet.</p>
+            )}
           </div>
           <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "10px" }}>
             <button onClick={resetGame}>Reset Game</button>
@@ -308,7 +337,9 @@ export default function App() {
               <>
                 <button onClick={makeEngineMove}>Make Engine Move</button>
                 <div style={{ marginTop: "10px" }}>
-                  <label><strong>Engine Mode: </strong></label>
+                  <label>
+                    <strong>Engine Mode: </strong>
+                  </label>
                   <select value={gamemode} onChange={(e) => setGamemode(e.target.value)}>
                     <option value="engine">Stockfish Engine</option>
                     <option value="minimax">Minimax</option>
@@ -318,6 +349,54 @@ export default function App() {
             )}
           </div>
         </div>
+        {/* Chat Section */}
+        {playMode === "multiplayer" && (
+          <div style={{ textAlign: "left", width: "250px" }}>
+            <h2>Chat</h2>
+            <div style={{ marginBottom: "10px" }}>
+              <input
+                type="text"
+                placeholder="Your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                style={{ width: "100%", padding: "5px" }}
+              />
+            </div>
+            <div
+              style={{
+                border: "1px solid #ccc",
+                padding: "10px",
+                height: "200px",
+                overflowY: "scroll",
+              }}
+            >
+              {chatMessages.length ? (
+                chatMessages.map((msg, index) => (
+                  <div key={index} style={{ marginBottom: "8px" }}>
+                    <strong>{msg.username}:</strong> {msg.message}
+                    <small style={{ color: "gray", marginLeft: "10px" }}>
+                      {new Date(msg.timestamp).toLocaleTimeString()}
+                    </small>
+                  </div>
+                ))
+              ) : (
+                <p>No messages yet.</p>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+            <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
+              <input
+                type="text"
+                placeholder="Type a message..."
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+              
+                style={{ flex: 1, padding: "5px" }}
+              />
+              <button onClick={sendChatMessage}>Send</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

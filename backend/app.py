@@ -73,6 +73,7 @@ def get_game(game_id: str) -> Dict:
             "board": chess.Board(),
             "move_history": [],
             "players": {},
+            "chat_messages": [],
             "status": "ongoing",
             "clients": []
         }
@@ -103,6 +104,7 @@ async def save_game_state(game_id: str):
             json.dump({
                 "fen": game["board"].fen(),
                 "move_history": game["move_history"],
+                "chat_messages": game["chat_messages"],
                 "status": game["status"]
             }, f)
         print(f"Saved state for game {game_id}: {game['board'].fen()}")
@@ -185,7 +187,7 @@ async def get_waiting_games():
 
 @app.websocket("/ws/chess/{game_id}")
 async def websocket_endpoint(websocket: WebSocket, game_id: str, client_id: str = None):
-    """WebSocket for real-time move updates."""
+    """WebSocket for real-time move and chat updates."""
     if not client_id:
         await websocket.accept()
         await websocket.send_json({"type": "error", "message": "client_id is required"})
@@ -196,7 +198,6 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, client_id: str 
     game = get_game(game_id)
     validate_game_state(game, game_id)
 
-    # Allow rejoining if client_id is already a player
     if len(game["players"]) >= 2 and client_id not in game["players"]:
         await websocket.accept()
         await websocket.send_json({"type": "error", "message": "Game is full"})
@@ -214,19 +215,20 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, client_id: str 
     elif "black" not in existing_colors:
         player_color = "black"
     else:
-        player_color = None  # game full
+        player_color = None  # Game full
 
     if player_color:
         game["players"][client_id] = player_color
 
     print(f"Client {client_id} joined game {game_id} as {player_color}")
 
-    # Send initial state
+    # Send initial state, including chat messages
     await websocket.send_json({
         "type": "init",
         "color": player_color,
         "fen": game["board"].fen(),
         "move_history": game["move_history"],
+        "chat_messages": game["chat_messages"],  # Send chat history
         "status": game["status"]
     })
 
@@ -251,7 +253,6 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, client_id: str 
                     game["move_history"].append(move_san)
                     get_game_status(game, game_id)
                     await save_game_state(game_id)
-                    # Broadcast move
                     for ws in game["clients"]:
                         if ws != websocket:
                             await ws.send_json({
@@ -266,12 +267,33 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, client_id: str 
                     print(f"Error handling move by client {client_id} in game {game_id}: {e}")
                     await websocket.send_json({"type": "error", "message": f"Move error: {str(e)}"})
 
+            elif data.get("type") == "chat":
+                # Handle chat message
+                if not data.get("message") or not isinstance(data["message"], str) or len(data["message"].strip()) == 0:
+                    await websocket.send_json({"type": "error", "message": "Invalid or empty chat message"})
+                    continue
+                chat_message = {
+                    "client_id": client_id,
+                    "username": data.get("username", "Anonymous"),
+                    "message": data["message"].strip(),
+                    "timestamp": int(asyncio.get_event_loop().time() * 1000)  # Unix timestamp in ms
+                }
+                game["chat_messages"].append(chat_message)
+                await save_game_state(game_id)
+                for ws in game["clients"]:
+                    await ws.send_json({
+                        "type": "chat",
+                        "message": chat_message
+                    })
+                print(f"Chat message in game {game_id} from {client_id}: {chat_message['message']}")
+
             elif data.get("type") == "reset":
                 game["board"] = chess.Board()
                 game["move_history"] = []
+                game["chat_messages"] = []  # Clear chat on reset
                 game["status"] = "ongoing"
-                game["players"] = {}  # Clear players on reset
-                game["players"][client_id] = "white"  # Reset initiator is white
+                game["players"] = {}
+                game["players"][client_id] = "white"
                 await save_game_state(game_id)
                 for ws in game["clients"]:
                     await ws.send_json({
@@ -279,6 +301,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, client_id: str 
                         "color": game["players"].get(client_id if ws == websocket else "", "spectator"),
                         "fen": game["board"].fen(),
                         "move_history": game["move_history"],
+                        "chat_messages": game["chat_messages"],
                         "status": game["status"]
                     })
                 print(f"Game {game_id} reset by client {client_id}")
@@ -304,6 +327,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, client_id: str 
             del game["players"][client_id]
         validate_game_state(game, game_id)
 
+
 @app.get("/debug/games")
 async def debug_games():
     """Debug endpoint to inspect game state."""
@@ -313,6 +337,7 @@ async def debug_games():
         "fen": v["board"].fen(),
         "move_history": v["move_history"],
         "players": v["players"],
+        "chat_messages": v["chat_messages"],
         "status": v["status"],
         "client_count": len(v["clients"])
     } for k, v in games.items()}}
