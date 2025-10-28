@@ -164,9 +164,9 @@ export default function App() {
   }
 
   function makeEngineMove() {
-  if (isEngineThinking) return; // Add this line
+  if (isEngineThinking) return;
 
-  setIsEngineThinking(true); // Add this line
+  setIsEngineThinking(true);
 
   fetch(`${backendUrl}/best-move/`, {
     method: "POST",
@@ -189,7 +189,7 @@ export default function App() {
       }
     })
     .catch((err) => console.error("Error making engine move:", err))
-    .finally(() => setIsEngineThinking(false)); // Add this line
+    .finally(() => setIsEngineThinking(false));
 }
 
   function sendChatMessage() {
