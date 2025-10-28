@@ -29,6 +29,7 @@ export default function App() {
   const [messageText, setMessageText] = useState("");
   const [username, setUsername] = useState(() => localStorage.getItem("chessUsername") || "Anonymous");
   const [chatError, setChatError] = useState("");
+  const [isEngineThinking, setIsEngineThinking] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Scroll to bottom of chat
@@ -163,21 +164,33 @@ export default function App() {
   }
 
   function makeEngineMove() {
-    fetch(`${backendUrl}/best-move`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fen: gameRef.current.fen(), game_mode: gamemode }),
+  if (isEngineThinking) return; // Add this line
+
+  setIsEngineThinking(true); // Add this line
+
+  fetch(`${backendUrl}/best-move/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fen: gameRef.current.fen(), game_mode: gamemode }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      const uciMove = data.best_move;
+      const from = uciMove.substring(0, 2);
+      const to = uciMove.substring(2, 4);
+      const promotion = uciMove.length > 4 ? uciMove.substring(4) : undefined;
+
+      const move = gameRef.current.move({ from, to, promotion });
+      if (move) {
+        setFen(gameRef.current.fen());
+        setMoveHistory((prev) => [...prev, move.san]);
+      } else {
+        console.error("Invalid move from engine:", uciMove);
+      }
     })
-      .then((res) => res.json())
-      .then((data) => {
-        const move = gameRef.current.move(data.best_move);
-        if (move) {
-          setFen(gameRef.current.fen());
-          setMoveHistory((prev) => [...prev, move.san]);
-        }
-      })
-      .catch((err) => console.error("Error making engine move:", err));
-  }
+    .catch((err) => console.error("Error making engine move:", err))
+    .finally(() => setIsEngineThinking(false)); // Add this line
+}
 
   function sendChatMessage() {
     if (!messageText.trim()) {
@@ -383,24 +396,24 @@ export default function App() {
             >
               Undo Move
             </button>
+
             {playMode === "engine" && (
-              <>
-                <button onClick={makeEngineMove} style={{ padding: "5px 10px" }}>
-                  Make Engine Move
-                </button>
-                <select
-                  value={gamemode}
-                  onChange={(e) => setGamemode(e.target.value)}
-                  style={{ padding: "5px", marginTop: "8px" }}
-                >
-                  <option value="engine">Stockfish Engine</option>
-                  <option value="minimax">Minimax</option>
-                </select>
-              </>
+                <>
+                    <button onClick={makeEngineMove} disabled={isEngineThinking} style={{ padding: "5px 10px" }}>
+                        {isEngineThinking ? "Thinking..." : "Make Engine Move"}
+                    </button>
+                    <select
+                        value={gamemode}
+                        onChange={(e) => setGamemode(e.target.value)}
+                        style={{ padding: "5px", marginTop: "8px" }}
+                    >
+                        <option value="engine">Stockfish Engine</option>
+                        <option value="minimax">Minimax</option>
+                    </select>
+                </>
             )}
           </div>
         </div>
-
         {/* Chat Section */}
         {playMode === "multiplayer" && (
           <div style={{ width: "200px" }}>
