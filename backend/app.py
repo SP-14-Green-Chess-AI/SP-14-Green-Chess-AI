@@ -13,7 +13,7 @@ app = FastAPI()
 # CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://sp-14-green-chess-ai.onrender.com"],
+    allow_origins=["http://localhost:3000", "http://localhost:8000", "http://localhost:5173", "http://localhost:5173/SP-14-Green-Chess-AI", "https://sp-14-green-chess-ai.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

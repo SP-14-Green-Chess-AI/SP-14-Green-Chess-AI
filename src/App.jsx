@@ -84,6 +84,29 @@ export default function App() {
     }
   }, [fen, playMode, backendUrl]);
 
+   useEffect(() => {
+    if (playMode === "multiplayer" && !gameId) {
+      // Fetch immediately
+      fetch(`${backendUrl}/waiting-games/`)
+        .then(res => res.json())
+        .then(data => {
+          console.log("Fetched games:", data.games);
+          setAvailableGames(data.games);
+        })
+        .catch(err => console.error("Error fetching games:", err));
+
+      // Poll every 3 seconds
+      const interval = setInterval(() => {
+        fetch(`${backendUrl}/waiting-games/`)
+          .then(res => res.json())
+          .then(data => setAvailableGames(data.games))
+          .catch(err => console.error("Error fetching games:", err));
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }
+  }, [playMode, gameId, backendUrl]);
+
   function onDrop(source, target) {
     if (gameStatus !== "ongoing" && playMode === "multiplayer") {
       console.log("Game over:", gameStatus);
@@ -305,6 +328,7 @@ export default function App() {
 
       {/* Main Layout */}
       <div style={{ display: "flex", justifyContent: "center", gap: "20px", flexWrap: "wrap" }}>
+
         {/* Chessboard */}
         <div>
           <Chessboard

@@ -10,32 +10,32 @@ export const themes = {
   },
 
   PinkVsPurple: {
-    white: { primary: "#FFC0CB", secondary: "#FF69B4" }, // light pink + brighter pink
-    black: { primary: "#800080", secondary: "#4B0082" }, // purple + indigo/purple
+    white: { primary: "#FFC0CB", secondary: "#FF69B4" },
+    black: { primary: "#800080", secondary: "#4B0082" },
   },
 
   GreenVsOrange: {
-    white: { primary: "#66BB6A", secondary: "#388E3C" }, // light pink + brighter pink
-    black: { primary: "#EF6C00", secondary: "#BF360C" }, // purple + indigo/purple
+    white: { primary: "#66BB6A", secondary: "#388E3C" },
+    black: { primary: "#EF6C00", secondary: "#BF360C" },
   },
 
   GoldVsSilver: {
-    white: { primary: "#FFD700", secondary: "#FFECB3" }, // light pink + brighter pink
-    black: { primary: "#B0C4DE", secondary: "#708090" }, // purple + indigo/purple
+    white: { primary: "#FFD700", secondary: "#FFECB3" },
+    black: { primary: "#B0C4DE", secondary: "#708090" },
   },
 
   CyanVsMagenta: {
-    white: { primary: "#00BCD4", secondary: "#00848F" }, // light pink + brighter pink
-    black: { primary: "#E91E63", secondary: "#880E4F" }, // purple + indigo/purple
+    white: { primary: "#00BCD4", secondary: "#00848F" },
+    black: { primary: "#E91E63", secondary: "#880E4F" },
   },
 
   TealVsCoral: {
-    white: { primary: "#009688", secondary: "#004D40" }, // light pink + brighter pink
-    black: { primary: "#FF6F61", secondary: "#D84315" }, // purple + indigo/purple
+    white: { primary: "#009688", secondary: "#004D40" },
+    black: { primary: "#FF6F61", secondary: "#D84315" },
   },
 
   LimeVsNavy: {
-    white: { primary: "#CDDC39", secondary: "#AFB42B" }, // light pink + brighter pink
-    black: { primary: "#1A237E", secondary: "#0D133D" }, // purple + indigo/purple
+    white: { primary: "#CDDC39", secondary: "#AFB42B" },
+    black: { primary: "#1A237E", secondary: "#0D133D" },
   },
 };
