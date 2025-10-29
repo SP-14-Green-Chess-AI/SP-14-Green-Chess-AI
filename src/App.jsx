@@ -232,6 +232,7 @@ export default function App() {
           <option value="local">Local (2 Players)</option>
           <option value="engine">vs Engine</option>
           <option value="multiplayer">Multiplayer</option>
+
         </select>
       </div>
 
@@ -409,6 +410,10 @@ export default function App() {
                     >
                         <option value="engine">Stockfish Engine</option>
                         <option value="minimax">Minimax</option>
+                        {/* Leela Engine: Only show on localhost */}
+                        {window.location.hostname === 'localhost' && (
+                          <option value="lc0">Leela Engine (Local Only)</option>
+                        )}
                     </select>
                 </>
             )}

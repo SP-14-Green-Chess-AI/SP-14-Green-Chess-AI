@@ -1,8 +1,25 @@
 import chess
 import chess.engine
-import sys
+import sys,os 
 import json
 import random
+
+# LC0_PATH = "lc0"  local machine from my system 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Relative to this file
+LC0_PATH = os.path.join(BASE_DIR, "engine", "Leela", "lc0-v0.32.0-macos_12.6.1")
+WEIGHTS_PATH = os.path.join(BASE_DIR, "engine", "Leela", "t1-256x10-distilled-swa-2432500.pb.gz")
+if(sys.platform.startswith('win')):
+    LC0_PATH = os.path.join(BASE_DIR, "engine", "Leela", "lc0.exe")
+
+# Make sure it's executable (macOS/Linux)
+if not os.access(LC0_PATH, os.X_OK):
+    os.chmod(LC0_PATH, 0o755)
+
+# Start engine
+engine = chess.engine.SimpleEngine.popen_uci([LC0_PATH, f"--weights={WEIGHTS_PATH}"])
+
 BOOK_PATH = "ecoA.json"
 with open(BOOK_PATH, 'r') as f:
     OPENING_BOOK = json.load(f) # Load the opening book
@@ -15,6 +32,11 @@ def get_opening_move(board):
         if legal_moves:
             return random.choice(legal_moves)
     return None
+
+def lc0_best_move(board: chess.Board, time_limit=1.5):
+    # time_limit = seconds per move (increase for stronger play)
+    result = engine.play(board, chess.engine.Limit(time=time_limit))
+    return result.move
 
 def get_best_move(board: chess.Board) -> chess.Move:
     if sys.platform.startswith("win"):
