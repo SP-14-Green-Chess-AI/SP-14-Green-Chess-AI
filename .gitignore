@@ -36,4 +36,6 @@ __pycache__/
 *.pyc
 
 # Other
-.DS_Store
+.DS_Storebackend/engine/Leela/*.pb.gz
+backend/engine/Leela/*.pb.gz
+backend/engine/Leela/*.pb.gz

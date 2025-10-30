@@ -6,7 +6,7 @@ import json
 import os
 import asyncio
 import chess
-from AIEngine import evaluate_board, get_best_move, get_opening_move, minimax
+from AIEngine import evaluate_board, get_best_move, get_opening_move, minimax, lc0_best_move
 
 app = FastAPI()
 
@@ -58,6 +58,9 @@ def best_move(board_state: BoardState):
         return {"best_move": best_move.uci()}
     elif board_state.game_mode == "engine":
         move = get_best_move(board)
+        return {"best_move": move.uci()}
+    elif board_state.game_mode == "lc0":
+        move = lc0_best_move(board)
         return {"best_move": move.uci()}
     else:
         return {"error": "Invalid game mode. Choose 'engine' or 'minimax'."}
