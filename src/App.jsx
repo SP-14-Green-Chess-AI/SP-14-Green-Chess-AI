@@ -8,7 +8,7 @@ import { Bishop, Rook, Knight, Queen, King, Pawn } from "./components/Pieces";
 import { DefaultKing, DefaultQueen, DefaultRook, DefaultBishop, DefaultKnight, DefaultPawn } from "./components/DefaultPieces";
 
 export default function App() {
-  const backendUrl = "http://localhost:8000"; // Fixed typo
+  const backendUrl = "http://localhost:8000";
   const gameRef = useRef(new Chess());
   const wsRef = useRef(null);
   const [fen, setFen] = useState(gameRef.current.fen());

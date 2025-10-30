@@ -1,30 +1,36 @@
-import chess
-import chess.engine
-import sys,os 
+import os
+import sys
 import json
 import random
+import platform
+import chess
+import chess.engine
 
-# LC0_PATH = "lc0"  local machine from my system 
+# Base directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Relative to this file
-LC0_PATH = os.path.join(BASE_DIR, "engine", "Leela", "lc0-v0.32.0-macos_12.6.1")
-WEIGHTS_PATH = os.path.join(BASE_DIR, "engine", "Leela", "t1-256x10-distilled-swa-2432500.pb.gz")
-if(sys.platform.startswith('win')):
+# Platform-specific LCZero binary
+if platform.system() == "Windows":
     LC0_PATH = os.path.join(BASE_DIR, "engine", "Leela", "lc0.exe")
+else:
+    LC0_PATH = os.path.join(BASE_DIR, "engine", "Leela", "lc0-v0.32.0-macos_12.6.1")
 
-# Make sure it's executable (macOS/Linux)
-if not os.access(LC0_PATH, os.X_OK):
+WEIGHTS_PATH = os.path.join(BASE_DIR, "engine", "Leela", "t1-256x10-distilled-swa-2432500.pb.gz")
+
+# Ensure executable permissions (Unix/macOS only)
+if platform.system() != "Windows" and not os.access(LC0_PATH, os.X_OK):
     os.chmod(LC0_PATH, 0o755)
 
-# Start engine
-engine = chess.engine.SimpleEngine.popen_uci([LC0_PATH, f"--weights={WEIGHTS_PATH}"])
+# Load LCZero engine
+def load_lc0_engine():
+    return chess.engine.SimpleEngine.popen_uci([LC0_PATH, f"--weights={WEIGHTS_PATH}"])
 
-BOOK_PATH = "ecoA.json"
+# Load opening book
+BOOK_PATH = os.path.join(BASE_DIR, "ecoA.json")
 with open(BOOK_PATH, 'r') as f:
-    OPENING_BOOK = json.load(f) # Load the opening book
+    OPENING_BOOK = json.load(f)
 
-def get_opening_move(board):
+def get_opening_move(board: chess.Board):
     fen = board.board_fen()
     if fen in OPENING_BOOK:
         legal_moves = [chess.Move.from_uci(m) for m in OPENING_BOOK[fen]]
@@ -34,25 +40,25 @@ def get_opening_move(board):
     return None
 
 def lc0_best_move(board: chess.Board, time_limit=1.5):
-    # time_limit = seconds per move (increase for stronger play)
+    engine = load_lc0_engine()
     result = engine.play(board, chess.engine.Limit(time=time_limit))
+    engine.quit()
     return result.move
 
 def get_best_move(board: chess.Board) -> chess.Move:
-    if sys.platform.startswith("win"):
-        engine_path = "engine/stockfish-windows-x86-64-avx2.exe"
-    elif sys.platform == "linux":
-        engine_path = "engine/stockfish-ubuntu-x86-64-avx2"
+    if platform.system() == "Windows":
+        engine_path = os.path.join(BASE_DIR, "engine", "stockfish-windows-x86-64.exe")
+    elif platform.system() == "Linux":
+        engine_path = os.path.join(BASE_DIR, "engine", "stockfish-ubuntu-x86-64-avx2")
     else:
-        engine_path = "engine/stockfish-macos-m1-apple-silicon"
+        engine_path = os.path.join(BASE_DIR, "engine", "stockfish-macos-m1-apple-silicon")
+
     engine = chess.engine.SimpleEngine.popen_uci(engine_path)
     result = engine.play(board, chess.engine.Limit(time=0.1))
     engine.quit()
     return result.move
 
-
 def minimax(board: chess.Board, depth: int, alpha=float('-inf'), beta=float('inf')) -> float:
-    
     if board.is_checkmate() or board.is_stalemate() or depth == 0:
         return evaluate_board(board)
 
@@ -79,10 +85,7 @@ def minimax(board: chess.Board, depth: int, alpha=float('-inf'), beta=float('inf
                 break
         return min_eval
 
-
-import chess
-
-# Piece-square tables: bonus for piece positions
+# Piece-square tables
 PIECE_SQUARES = {
     chess.PAWN: [
         0, 0, 0, 0, 0, 0, 0, 0,
@@ -103,9 +106,10 @@ PIECE_SQUARES = {
         -3, 0, 1, 1.5, 1.5, 1, 0, -3,
         -4, -2, 0, 0, 0, 0, -2, -4,
         -5, -4, -3, -3, -3, -3, -4, -5
-    ],}
+    ]
+}
 
-# Base material values
+# Material values
 MATERIAL_VALUES = {
     chess.PAWN: 100,
     chess.KNIGHT: 320,
@@ -116,22 +120,14 @@ MATERIAL_VALUES = {
 }
 
 def evaluate_board(board: chess.Board) -> float:
-    """
-    Positive: White is better
-    Negative: Black is better
-    Combines material and piece-square tables for position
-    """
     value = 0
-
     for piece_type in MATERIAL_VALUES:
         for square in board.pieces(piece_type, chess.WHITE):
             value += MATERIAL_VALUES[piece_type]
             if piece_type in PIECE_SQUARES:
                 value += PIECE_SQUARES[piece_type][square]
-
         for square in board.pieces(piece_type, chess.BLACK):
             value -= MATERIAL_VALUES[piece_type]
             if piece_type in PIECE_SQUARES:
                 value -= PIECE_SQUARES[piece_type][chess.square_mirror(square)]
-
-    return value / 100.0  # normalize to smaller scale
+    return value / 100.0
