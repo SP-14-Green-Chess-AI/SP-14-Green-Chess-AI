@@ -38,7 +38,26 @@ export default function App() {
       setShowConnectionPopup(true)
     }
   },[playMode]);
+  function handleDisconnect() {
+  if (socket && gameId) {
+    socket.send(JSON.stringify({
+      type: "leave",
+      gameId,
+      clientId 
+    }));
+    setGameId("");
+    setPlayerColor(null);
+    setGameStatus(null);
 
+  setShowConnectionPopup(true);
+
+  }
+
+  setGameId("");
+  setPlayerColor(null);
+  setGameStatus(null);
+  setShowConnectionPopup(true);
+}
   // Scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -265,7 +284,7 @@ export default function App() {
 
         <h1 style={{ margin: 0 }}>Chess AI App</h1>
       </div>
-      {/* ✅ Top-Right Multiplayer Status Box */}
+      {/* Top-Right Multiplayer Status Box */}
   {playMode === "multiplayer" && gameId && (
     <div style={{
       position: "absolute",
@@ -284,6 +303,20 @@ export default function App() {
         <div><strong>You:</strong> {playerColor.toUpperCase()}</div>
       )}
       <div><strong>Status:</strong> {gameStatus || "Waiting"}</div>
+       <button
+      onClick={handleDisconnect}
+      style={{
+        marginTop: "8px",
+       
+        padding: "6px 10px",
+        borderRadius: "6px",
+        cursor: "pointer",
+        
+        width: "100%"
+      }}
+    >
+      Disconnect
+    </button>
     </div>
   )}
       

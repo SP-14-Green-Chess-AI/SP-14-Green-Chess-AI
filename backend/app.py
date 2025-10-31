@@ -289,7 +289,23 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, client_id: str 
                         "message": chat_message
                     })
                 print(f"Chat message in game {game_id} from {client_id}: {chat_message['message']}")
+            elif data.get("type") == "leave":
+                # Player leaving the game
+                if websocket in game["clients"]:
+                    game["clients"].remove(websocket)
 
+                # Store this for rejoin logic (optional)
+                game["last_left"] = client_id
+
+                # Notify remaining players
+                for ws in list(game["clients"]):
+                    await ws.send_json({
+                        "type": "opponentLeft",
+                        "client_id": client_id
+                    })
+
+                await save_game_state(game_id)
+                print(f"Client {client_id} left game {game_id}")
             elif data.get("type") == "reset":
                 game["board"] = chess.Board()
                 game["move_history"] = []
