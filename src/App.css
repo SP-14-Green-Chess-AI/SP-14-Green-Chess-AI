@@ -40,3 +40,81 @@
 .read-the-docs {
   color: #888;
 }
+.container {
+  max-width: 1200px;
+  margin: 20px auto;
+  text-align: center;
+  background-color: #f0f0f0;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.title {
+  color: #333;
+  font-size: 2.5rem;
+}
+
+.board-popup-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 10, 10, 0.65); /* Dark translucent overlay */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+.board-popup {
+  background: #1d1d1d;        /* Neutral dark card */
+  border: 1px solid #333;     /* Subtle border */
+  border-radius: 8px;
+  padding: 24px;
+  width: 300px;
+  max-width: 90%;
+  color: #e6e6e6;             /* Soft white, easier on eyes */
+  text-align: center;
+}
+
+.board-popup h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Inputs + Select */
+.board-popup input,
+.board-popup select {
+  background: #222;
+  border: 1px solid #444;
+  padding: 8px 10px;
+  width: 100%;
+  color: #e6e6e6;
+  margin-top: 8px;
+  border-radius: 6px;
+}
+
+.board-popup input::placeholder {
+  color: #777;
+}
+
+/* Buttons */
+.board-popup button {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  padding: 8px 14px;
+  border-radius: 6px;
+  margin-top: 12px;
+  cursor: pointer;
+  color: #e6e6e6;
+  transition: 0.15s;
+}
+
+.board-popup button:hover {
+  background: #333;
+  border-color: #555;
+}
+

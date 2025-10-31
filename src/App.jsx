@@ -6,7 +6,7 @@ import { themes } from "./themes";
 import { boardThemes, getCustomPieces } from "./components/boardThemes";
 import { Bishop, Rook, Knight, Queen, King, Pawn } from "./components/Pieces";
 import { DefaultKing, DefaultQueen, DefaultRook, DefaultBishop, DefaultKnight, DefaultPawn } from "./components/DefaultPieces";
-
+import './App.css';
 export default function App() {
   const backendUrl = "http://localhost:8000";
   const gameRef = useRef(new Chess());
@@ -31,6 +31,13 @@ export default function App() {
   const [chatError, setChatError] = useState("");
   const [isEngineThinking, setIsEngineThinking] = useState(false);
   const messagesEndRef = useRef(null);
+  const [showConnectionPopup, setShowConnectionPopup] = useState(true);
+  const [roomCode, setRoomCode] = useState("");
+  useEffect(() => {
+    if (playMode == 'multiplayer'){
+      setShowConnectionPopup(true)
+    }
+  },[playMode]);
 
   // Scroll to bottom of chat
   useEffect(() => {
@@ -220,81 +227,67 @@ export default function App() {
   }
 
   return (
-    <div style={{ maxWidth: "1200px", margin: "20px auto", textAlign: "center" }}>
-      <h1>React Chess App</h1>
+    
 
-      {/* Play Mode Selection */}
-      <div style={{ marginBottom: "20px" }}>
-        <label>
-          <strong>Play Mode: </strong>
-        </label>
-        <select value={playMode} onChange={(e) => setPlayMode(e.target.value)}>
-          <option value="local">Local (2 Players)</option>
-          <option value="engine">vs Engine</option>
-          <option value="multiplayer">Multiplayer</option>
+    <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+{/* HEADER */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "Left",
+          gap: "12px",
+          padding: "16px 0",
+          borderBottom: "1px solid #ccc"
+        }}
+      >
+        <button
+          onClick={() =>
+            window.open(
+              "https://github.com/SP-14-Green-Chess-AI/SP-14-Green-Chess-AI",
+              "_blank",
+              "noopener noreferrer"
+            )
+          }
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer"
+          }}
+        >
+          <img
+            src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+            alt="GitHub"
+            style={{ width: "40px" }}
+          />
+        </button>
 
-        </select>
+        <h1 style={{ margin: 0 }}>Chess AI App</h1>
       </div>
-
-      {/* Multiplayer Room Selection */}
-      {playMode === "multiplayer" && (
-        <div style={{ marginBottom: "20px" }}>
-          {gameStatus && (
-            <div style={{ color: "red", marginBottom: "10px" }}>
-              {gameStatus.charAt(0).toUpperCase() + gameStatus.slice(1)}
-            </div>
-          )}
-          {playerColor && (
-            <div style={{ marginBottom: "10px", fontWeight: "bold" }}>
-              You are: <strong>{playerColor.toUpperCase()}</strong>
-            </div>
-          )}
-          <div>
-            <label>
-              <strong>Join Game: </strong>
-            </label>
-            <select value={gameId} onChange={(e) => setGameId(e.target.value)}>
-              <option value="">Select a game</option>
-              {availableGames.map((id) => (
-                <option key={id} value={id}>{id}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ marginTop: "10px" }}>
-            <label>
-              <strong>Or enter Game ID: </strong>
-            </label>
-            <input
-              value={gameIdInput}
-              onChange={(e) => setGameIdInput(e.target.value)}
-              placeholder="e.g., game123"
-              style={{ marginLeft: "10px", padding: "5px" }}
-            />
-            <button
-              onClick={() => {
-                if (gameIdInput.trim()) {
-                  setGameId(gameIdInput.trim());
-                  setGameIdInput("");
-                }
-              }}
-              style={{ marginLeft: "10px", padding: "5px 10px" }}
-            >
-              Join
-            </button>
-          </div>
-          <button
-            onClick={() => setGameId(crypto.randomUUID())}
-            style={{ marginTop: "10px", padding: "5px 10px" }}
-          >
-            Create New Game
-          </button>
-          {gameId && (
-            <div style={{ marginTop: "10px", fontWeight: "bold" }}>
-              Game ID: <strong>{gameId}</strong>
-            </div>
-          )}
-        </div>
+      {/* ✅ Top-Right Multiplayer Status Box */}
+  {playMode === "multiplayer" && gameId && (
+    <div style={{
+      position: "absolute",
+      top: "10px",
+      right: "10px",
+      
+      borderRadius: "6px",
+      padding: "10px 14px",
+  
+      fontSize: "14px",
+      textAlign: "right",
+      zIndex: 20
+    }}>
+      <div><strong>ID:</strong> {gameId}</div>
+      {playerColor && (
+        <div><strong>You:</strong> {playerColor.toUpperCase()}</div>
       )}
+      <div><strong>Status:</strong> {gameStatus || "Waiting"}</div>
+    </div>
+  )}
+      
+      
 
       {/* Theme Selectors */}
       <div style={{ marginBottom: "20px", display: "flex", justifyContent: "center", gap: "20px" }}>
@@ -332,36 +325,125 @@ export default function App() {
         </div>
       </div>
 
-      {/* Evaluation Bar for Engine Mode */}
+      {/* Main Layout */}
+      <div style={{ display: "flex", justifyContent: "center", gap: "20px", flexWrap: "wrap" }}>
+        {/* Chessboard */}
+        <div
+          style={{
+            position: "relative",
+            width: "fit-content",
+            height: "fit-content"
+          }}
+        >
+          {/* Evaluation Bar for Engine Mode */}
       {playMode === "engine" && (
         <div style={{ marginBottom: "20px" }}>
           <strong>Evaluation: </strong>
           {evaluation !== null ? evaluation : "Loading..."}
         </div>
       )}
+           <Chessboard
+    id="chessboard"
+    boardWidth={500}
+    position={fen}
+    boardOrientation={boardOrientation}
+    onPieceDrop={onDrop}
+    customPieces={customPieces}
+    customDarkSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.dark }}
+    customLightSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.light }}
+  />
 
-      {/* Main Layout */}
-      <div style={{ display: "flex", justifyContent: "center", gap: "20px", flexWrap: "wrap" }}>
+  <button onClick={flipBoard} style={{ marginTop: "10px", padding: "5px 10px" }}>
+    Flip Board
+  </button>
 
-        {/* Chessboard */}
-        <div>
-          <Chessboard
-            id="chessboard"
-            boardWidth={500} // Reduced to fit chat
-            position={fen}
-            boardOrientation={boardOrientation}
-            onPieceDrop={onDrop}
-            customPieces={customPieces}
-            customDarkSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.dark }}
-            customLightSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.light }}
-          />
-          <button onClick={flipBoard} style={{ marginTop: "10px", padding: "5px 10px" }}>
-            Flip Board
-          </button>
+ {playMode === "multiplayer" && showConnectionPopup && (
+  <div className="board-popup-overlay">
+    <div className="board-popup">
+
+      {gameStatus && (
+        <div style={{ color: "red", marginBottom: "10px" }}>
+          {gameStatus.charAt(0).toUpperCase() + gameStatus.slice(1)}
         </div>
+      )}
+
+      {playerColor && (
+        <div style={{ marginBottom: "10px", fontWeight: "bold" }}>
+          You are: <strong>{playerColor.toUpperCase()}</strong>
+        </div>
+      )}
+
+      <div>
+        <label><strong>Join Game:</strong></label>
+        <select value={gameId} onChange={(e) => setGameId(e.target.value)}>
+          <option value="">Select a game</option>
+          {availableGames.map((id) => (
+            <option key={id} value={id}>{id}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ marginTop: "10px" }}>
+        <label><strong>Or enter Game ID:</strong></label>
+        <input
+          value={gameIdInput}
+          onChange={(e) => setGameIdInput(e.target.value)}
+          placeholder="e.g., game123"
+          style={{ marginLeft: "10px", padding: "5px" }}
+        />
+        <button
+          onClick={() => {
+            if (gameIdInput.trim()) {
+              setGameId(gameIdInput.trim());
+              setGameIdInput("");
+            }
+          }}
+          style={{ marginLeft: "10px", padding: "5px 10px" }}
+        >
+          Join
+        </button>
+      </div>
+
+      <button
+        onClick={() => setGameId(crypto.randomUUID())}
+        style={{ marginTop: "10px", padding: "5px 10px" }}
+      >
+        Create New Game
+      </button>
+
+      {gameId && (
+        <div style={{ marginTop: "10px", fontWeight: "bold" }}>
+          Game ID: <strong>{gameId}</strong>
+        </div>
+      )}
+
+      <button
+        style={{ marginTop: "15px", padding: "6px 10px" }}
+        onClick={() => setShowConnectionPopup(false)}
+      >
+        Close
+      </button>
+
+    </div>
+  </div>
+)}
+
+</div>
 
         {/* Move History and Controls */}
         <div style={{ width: "200px" }}>
+          {/* Play Mode Selection */}
+      <div style={{ marginBottom: "20px" }}>
+        <label>
+          <strong>Play Mode: </strong>
+        </label>
+        <select value={playMode} onChange={(e) => setPlayMode(e.target.value)}>
+          <option value="local">Local (2 Players)</option>
+          <option value="engine">vs Engine</option>
+          <option value="multiplayer">Multiplayer</option>
+
+        </select>
+      </div>
           <h3>Move History</h3>
           <div
             style={{
