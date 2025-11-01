@@ -7,10 +7,14 @@ import { boardThemes, getCustomPieces } from "./components/boardThemes";
 import { Bishop, Rook, Knight, Queen, King, Pawn } from "./components/Pieces";
 import { DefaultKing, DefaultQueen, DefaultRook, DefaultBishop, DefaultKnight, DefaultPawn } from "./components/DefaultPieces";
 import './App.css';
+
 export default function App() {
   const backendUrl = "http://localhost:8000";
   const gameRef = useRef(new Chess());
   const wsRef = useRef(null);
+  const aiRunningRef = useRef(false);
+  const messagesEndRef = useRef(null);
+
   const [fen, setFen] = useState(gameRef.current.fen());
   const [moveHistory, setMoveHistory] = useState([]);
   const [playMode, setPlayMode] = useState("local");
@@ -30,34 +34,33 @@ export default function App() {
   const [username, setUsername] = useState(() => localStorage.getItem("chessUsername") || "Anonymous");
   const [chatError, setChatError] = useState("");
   const [isEngineThinking, setIsEngineThinking] = useState(false);
-  const messagesEndRef = useRef(null);
+  const [whiteAI, setWhiteAI] = useState("engine");
+  const [blackAI, setBlackAI] = useState("minimax");
   const [showConnectionPopup, setShowConnectionPopup] = useState(true);
   const [roomCode, setRoomCode] = useState("");
+  const [aiRunning, setAiRunning] = useState(false);
+  const [aiMoves, setAiMoves] = useState([]);
+
   useEffect(() => {
-    if (playMode == 'multiplayer'){
+    if (playMode === 'multiplayer'){
       setShowConnectionPopup(true)
     }
   },[playMode]);
+
   function handleDisconnect() {
-  if (socket && gameId) {
-    socket.send(JSON.stringify({
-      type: "leave",
-      gameId,
-      clientId 
-    }));
+    if (wsRef.current && gameId) {
+      wsRef.current.send(JSON.stringify({
+        type: "leave",
+        gameId,
+      }));
+    }
+
     setGameId("");
     setPlayerColor(null);
-    setGameStatus(null);
-
-  setShowConnectionPopup(true);
-
+    setGameStatus("");
+    setShowConnectionPopup(true);
   }
 
-  setGameId("");
-  setPlayerColor(null);
-  setGameStatus(null);
-  setShowConnectionPopup(true);
-}
   // Scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -111,7 +114,7 @@ export default function App() {
     }
   }, [fen, playMode, backendUrl]);
 
-   useEffect(() => {
+  useEffect(() => {
     if (playMode === "multiplayer" && !gameId) {
       // Fetch immediately
       fetch(`${backendUrl}/waiting-games/`)
@@ -133,6 +136,79 @@ export default function App() {
       return () => clearInterval(interval);
     }
   }, [playMode, gameId, backendUrl]);
+
+  // AI vs AI
+  const startAIMatch = async () => {
+    setAiRunning(true);
+    aiRunningRef.current = true;
+    setAiMoves([]);
+    setMoveHistory([]);
+    const chessInstance = new Chess(fen);
+    let currentFen = chessInstance.fen();
+
+    while (aiRunningRef.current) {
+        const response = await fetch("http://localhost:8000/ai-vs-ai-step/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                fen: currentFen,
+                white_ai: whiteAI,
+                black_ai: blackAI,
+            }),
+        });
+
+        const data = await response.json();
+
+        if (!data.moves.length || data.game_over) {
+            setAiRunning(false);
+            aiRunningRef.current = false;
+            break;
+        }
+
+        if (!aiRunningRef.current) break;
+
+        const move = data.moves[0];
+
+        chessInstance.move({
+            from: move.substring(0, 2),
+            to: move.substring(2, 4),
+            promotion: move.length === 5 ? move[4] : undefined,
+        });
+
+        currentFen = chessInstance.fen();
+
+        // Check again before updating state
+        if (!aiRunningRef.current) break;
+
+        // Update board state
+        setFen(currentFen);
+        setMoveHistory(prev => [...prev, chessInstance.history({ verbose: true }).slice(-1)[0].san]);
+        setAiMoves(prev => [...prev, move]);
+
+        // Check before delay
+        if (!aiRunningRef.current) break;
+
+        // Delay between moves. Time in ms
+        await new Promise(res => setTimeout(res, 300));
+    }
+
+    setAiRunning(false);
+    aiRunningRef.current = false;
+  };
+
+  const stopAIMatch = () => {
+    aiRunningRef.current = false;
+    setAiRunning(false);
+
+    // Reset after a brief delay
+    setTimeout(() => {
+      gameRef.current = new Chess();
+      setFen(gameRef.current.fen());
+      setMoveHistory([]);
+      setAiMoves([]);
+      setGameStatus("");
+    }, 350);
+  };
 
   function onDrop(source, target) {
     if (gameStatus !== "ongoing" && playMode === "multiplayer") {
@@ -169,11 +245,17 @@ export default function App() {
   }
 
   function resetGame() {
+    // Stop AI if running
+    setAiRunning(false);
+    aiRunningRef.current = false;
+
     gameRef.current = new Chess();
     setFen(gameRef.current.fen());
     setMoveHistory([]);
     setGameStatus("");
     setChatMessages([]);
+    setAiMoves([]);
+
     if (playMode === "multiplayer" && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "reset" }));
     }
@@ -190,33 +272,33 @@ export default function App() {
   }
 
   function makeEngineMove() {
-  if (isEngineThinking) return;
+    if (isEngineThinking) return;
 
-  setIsEngineThinking(true);
+    setIsEngineThinking(true);
 
-  fetch(`${backendUrl}/best-move/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fen: gameRef.current.fen(), game_mode: gamemode }),
-  })
-    .then((res) => res.json())
-    .then((data) => {
-      const uciMove = data.best_move;
-      const from = uciMove.substring(0, 2);
-      const to = uciMove.substring(2, 4);
-      const promotion = uciMove.length > 4 ? uciMove.substring(4) : undefined;
-
-      const move = gameRef.current.move({ from, to, promotion });
-      if (move) {
-        setFen(gameRef.current.fen());
-        setMoveHistory((prev) => [...prev, move.san]);
-      } else {
-        console.error("Invalid move from engine:", uciMove);
-      }
+    fetch(`${backendUrl}/best-move/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fen: gameRef.current.fen(), game_mode: gamemode }),
     })
-    .catch((err) => console.error("Error making engine move:", err))
-    .finally(() => setIsEngineThinking(false));
-}
+      .then((res) => res.json())
+      .then((data) => {
+        const uciMove = data.best_move;
+        const from = uciMove.substring(0, 2);
+        const to = uciMove.substring(2, 4);
+        const promotion = uciMove.length > 4 ? uciMove.substring(4) : undefined;
+
+        const move = gameRef.current.move({ from, to, promotion });
+        if (move) {
+          setFen(gameRef.current.fen());
+          setMoveHistory((prev) => [...prev, move.san]);
+        } else {
+          console.error("Invalid move from engine:", uciMove);
+        }
+      })
+      .catch((err) => console.error("Error making engine move:", err))
+      .finally(() => setIsEngineThinking(false));
+  }
 
   function sendChatMessage() {
     if (!messageText.trim()) {
@@ -246,10 +328,8 @@ export default function App() {
   }
 
   return (
-    
-
     <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-{/* HEADER */}
+      {/* HEADER */}
       <div
         style={{
           display: "flex",
@@ -284,43 +364,72 @@ export default function App() {
 
         <h1 style={{ margin: 0 }}>Chess AI App</h1>
       </div>
+
       {/* Top-Right Multiplayer Status Box */}
-  {playMode === "multiplayer" && gameId && (
-    <div style={{
-      position: "absolute",
-      top: "10px",
-      right: "10px",
-      
-      borderRadius: "6px",
-      padding: "10px 14px",
-  
-      fontSize: "14px",
-      textAlign: "right",
-      zIndex: 20
-    }}>
-      <div><strong>ID:</strong> {gameId}</div>
-      {playerColor && (
-        <div><strong>You:</strong> {playerColor.toUpperCase()}</div>
+      {playMode === "multiplayer" && gameId && (
+        <div style={{
+          position: "absolute",
+          top: "10px",
+          right: "10px",
+          borderRadius: "6px",
+          padding: "10px 14px",
+          fontSize: "14px",
+          textAlign: "right",
+          zIndex: 20
+        }}>
+          <div><strong>ID:</strong> {gameId}</div>
+          {playerColor && (
+            <div><strong>You:</strong> {playerColor.toUpperCase()}</div>
+          )}
+          <div><strong>Status:</strong> {gameStatus || "Waiting"}</div>
+          <button
+            onClick={handleDisconnect}
+            style={{
+              marginTop: "8px",
+              padding: "6px 10px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              width: "100%"
+            }}
+          >
+            Disconnect
+          </button>
+        </div>
       )}
-      <div><strong>Status:</strong> {gameStatus || "Waiting"}</div>
-       <button
-      onClick={handleDisconnect}
-      style={{
-        marginTop: "8px",
-       
-        padding: "6px 10px",
-        borderRadius: "6px",
-        cursor: "pointer",
-        
-        width: "100%"
-      }}
-    >
-      Disconnect
-    </button>
-    </div>
-  )}
-      
-      
+
+      {/* AI vs AI Selection */}
+      {playMode === "ai" && (
+        <div style={{ marginBottom: "20px" }}>
+          <h4>AI vs AI Match</h4>
+          <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "10px" }}>
+            <div>
+              <label>White AI: </label>
+              <select value={whiteAI} onChange={(e) => setWhiteAI(e.target.value)}>
+                <option value="engine">Stockfish</option>
+                <option value="minimax">Minimax</option>
+                {window.location.hostname === "localhost" && (
+                  <option value="lc0">Leela</option>
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label>Black AI: </label>
+              <select value={blackAI} onChange={(e) => setBlackAI(e.target.value)}>
+                <option value="engine">Stockfish</option>
+                <option value="minimax">Minimax</option>
+                {window.location.hostname === "localhost" && (
+                  <option value="lc0">Leela</option>
+                )}
+              </select>
+            </div>
+          </div>
+
+          <button onClick={startAIMatch} disabled={aiRunning} style={{ padding: "5px 10px" }}>
+            {aiRunning ? "Running..." : "Start AI vs AI"}
+          </button>
+        </div>
+      )}
 
       {/* Theme Selectors */}
       <div style={{ marginBottom: "20px", display: "flex", justifyContent: "center", gap: "20px" }}>
@@ -369,114 +478,113 @@ export default function App() {
           }}
         >
           {/* Evaluation Bar for Engine Mode */}
-      {playMode === "engine" && (
-        <div style={{ marginBottom: "20px" }}>
-          <strong>Evaluation: </strong>
-          {evaluation !== null ? evaluation : "Loading..."}
+          {playMode === "engine" && (
+            <div style={{ marginBottom: "20px" }}>
+              <strong>Evaluation: </strong>
+              {evaluation !== null ? evaluation : "Loading..."}
+            </div>
+          )}
+
+          <Chessboard
+            id="chessboard"
+            boardWidth={500}
+            position={fen}
+            boardOrientation={boardOrientation}
+            onPieceDrop={onDrop}
+            customPieces={customPieces}
+            customDarkSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.dark }}
+            customLightSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.light }}
+          />
+
+          <button onClick={flipBoard} style={{ marginTop: "10px", padding: "5px 10px" }}>
+            Flip Board
+          </button>
+
+          {playMode === "multiplayer" && showConnectionPopup && (
+            <div className="board-popup-overlay">
+              <div className="board-popup">
+                {gameStatus && (
+                  <div style={{ color: "red", marginBottom: "10px" }}>
+                    {gameStatus.charAt(0).toUpperCase() + gameStatus.slice(1)}
+                  </div>
+                )}
+
+                {playerColor && (
+                  <div style={{ marginBottom: "10px", fontWeight: "bold" }}>
+                    You are: <strong>{playerColor.toUpperCase()}</strong>
+                  </div>
+                )}
+
+                <div>
+                  <label><strong>Join Game:</strong></label>
+                  <select value={gameId} onChange={(e) => setGameId(e.target.value)}>
+                    <option value="">Select a game</option>
+                    {availableGames.map((id) => (
+                      <option key={id} value={id}>{id}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ marginTop: "10px" }}>
+                  <label><strong>Or enter Game ID:</strong></label>
+                  <input
+                    value={gameIdInput}
+                    onChange={(e) => setGameIdInput(e.target.value)}
+                    placeholder="e.g., game123"
+                    style={{ marginLeft: "10px", padding: "5px" }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (gameIdInput.trim()) {
+                        setGameId(gameIdInput.trim());
+                        setGameIdInput("");
+                      }
+                    }}
+                    style={{ marginLeft: "10px", padding: "5px 10px" }}
+                  >
+                    Join
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setGameId(crypto.randomUUID())}
+                  style={{ marginTop: "10px", padding: "5px 10px" }}
+                >
+                  Create New Game
+                </button>
+
+                {gameId && (
+                  <div style={{ marginTop: "10px", fontWeight: "bold" }}>
+                    Game ID: <strong>{gameId}</strong>
+                  </div>
+                )}
+
+                <button
+                  style={{ marginTop: "15px", padding: "6px 10px" }}
+                  onClick={() => setShowConnectionPopup(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-           <Chessboard
-    id="chessboard"
-    boardWidth={500}
-    position={fen}
-    boardOrientation={boardOrientation}
-    onPieceDrop={onDrop}
-    customPieces={customPieces}
-    customDarkSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.dark }}
-    customLightSquareStyle={{ backgroundColor: boardThemes[selectedBoardTheme]?.light }}
-  />
-
-  <button onClick={flipBoard} style={{ marginTop: "10px", padding: "5px 10px" }}>
-    Flip Board
-  </button>
-
- {playMode === "multiplayer" && showConnectionPopup && (
-  <div className="board-popup-overlay">
-    <div className="board-popup">
-
-      {gameStatus && (
-        <div style={{ color: "red", marginBottom: "10px" }}>
-          {gameStatus.charAt(0).toUpperCase() + gameStatus.slice(1)}
-        </div>
-      )}
-
-      {playerColor && (
-        <div style={{ marginBottom: "10px", fontWeight: "bold" }}>
-          You are: <strong>{playerColor.toUpperCase()}</strong>
-        </div>
-      )}
-
-      <div>
-        <label><strong>Join Game:</strong></label>
-        <select value={gameId} onChange={(e) => setGameId(e.target.value)}>
-          <option value="">Select a game</option>
-          {availableGames.map((id) => (
-            <option key={id} value={id}>{id}</option>
-          ))}
-        </select>
-      </div>
-
-      <div style={{ marginTop: "10px" }}>
-        <label><strong>Or enter Game ID:</strong></label>
-        <input
-          value={gameIdInput}
-          onChange={(e) => setGameIdInput(e.target.value)}
-          placeholder="e.g., game123"
-          style={{ marginLeft: "10px", padding: "5px" }}
-        />
-        <button
-          onClick={() => {
-            if (gameIdInput.trim()) {
-              setGameId(gameIdInput.trim());
-              setGameIdInput("");
-            }
-          }}
-          style={{ marginLeft: "10px", padding: "5px 10px" }}
-        >
-          Join
-        </button>
-      </div>
-
-      <button
-        onClick={() => setGameId(crypto.randomUUID())}
-        style={{ marginTop: "10px", padding: "5px 10px" }}
-      >
-        Create New Game
-      </button>
-
-      {gameId && (
-        <div style={{ marginTop: "10px", fontWeight: "bold" }}>
-          Game ID: <strong>{gameId}</strong>
-        </div>
-      )}
-
-      <button
-        style={{ marginTop: "15px", padding: "6px 10px" }}
-        onClick={() => setShowConnectionPopup(false)}
-      >
-        Close
-      </button>
-
-    </div>
-  </div>
-)}
-
-</div>
 
         {/* Move History and Controls */}
         <div style={{ width: "200px" }}>
           {/* Play Mode Selection */}
-      <div style={{ marginBottom: "20px" }}>
-        <label>
-          <strong>Play Mode: </strong>
-        </label>
-        <select value={playMode} onChange={(e) => setPlayMode(e.target.value)}>
-          <option value="local">Local (2 Players)</option>
-          <option value="engine">vs Engine</option>
-          <option value="multiplayer">Multiplayer</option>
+          <div style={{ marginBottom: "20px" }}>
+            <label>
+              <strong>Play Mode: </strong>
+            </label>
+            <select value={playMode} onChange={(e) => setPlayMode(e.target.value)}>
+              <option value="local">Local (2 Players)</option>
+              <option value="engine">vs Engine</option>
+              <option value="multiplayer">Multiplayer</option>
+              <option value="ai">AI vs AI</option>
+            </select>
+          </div>
 
-        </select>
-      </div>
           <h3>Move History</h3>
           <div
             style={{
@@ -501,39 +609,54 @@ export default function App() {
               <p>No moves yet.</p>
             )}
           </div>
+
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <button onClick={resetGame} style={{ padding: "5px 10px" }}>
-              Reset Game
-            </button>
-            <button
-              onClick={undoMove}
-              disabled={!moveHistory.length}
-              style={{ padding: "5px 10px" }}
-            >
-              Undo Move
-            </button>
+            {playMode !== "multiplayer" && playMode !== "ai" && (
+              <>
+                <button onClick={resetGame} style={{ padding: "5px 10px" }}>
+                  Reset Game
+                </button>
+                <button
+                  onClick={undoMove}
+                  disabled={!moveHistory.length}
+                  style={{ padding: "5px 10px" }}
+                >
+                  Undo Move
+                </button>
+              </>
+            )}
+
+            {playMode === "ai" && (
+              <button
+                onClick={stopAIMatch}
+                disabled={!aiRunning}
+                style={{ padding: "6px 12px" }}
+              >
+                Stop AI
+              </button>
+            )}
 
             {playMode === "engine" && (
-                <>
-                    <button onClick={makeEngineMove} disabled={isEngineThinking} style={{ padding: "5px 10px" }}>
-                        {isEngineThinking ? "Thinking..." : "Make Engine Move"}
-                    </button>
-                    <select
-                        value={gamemode}
-                        onChange={(e) => setGamemode(e.target.value)}
-                        style={{ padding: "5px", marginTop: "8px" }}
-                    >
-                        <option value="engine">Stockfish Engine</option>
-                        <option value="minimax">Minimax</option>
-                        {/* Leela Engine: Only show on localhost */}
-                        {window.location.hostname === 'localhost' && (
-                          <option value="lc0">Leela Engine (Local Only)</option>
-                        )}
-                    </select>
-                </>
+              <>
+                <button onClick={makeEngineMove} disabled={isEngineThinking} style={{ padding: "5px 10px" }}>
+                  {isEngineThinking ? "Thinking..." : "Make Engine Move"}
+                </button>
+                <select
+                  value={gamemode}
+                  onChange={(e) => setGamemode(e.target.value)}
+                  style={{ padding: "5px", marginTop: "8px" }}
+                >
+                  <option value="engine">Stockfish Engine</option>
+                  <option value="minimax">Minimax</option>
+                  {window.location.hostname === 'localhost' && (
+                    <option value="lc0">Leela Engine (Local Only)</option>
+                  )}
+                </select>
+              </>
             )}
           </div>
         </div>
+
         {/* Chat Section */}
         {playMode === "multiplayer" && (
           <div style={{ width: "200px" }}>

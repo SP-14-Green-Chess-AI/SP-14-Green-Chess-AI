@@ -1,7 +1,8 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Dict, List
+from typing import Dict, List, Optional
+
 import json
 import os
 import asyncio
@@ -19,17 +20,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-games: Dict[str, Dict] = {}  # {game_id: {"board": chess.Board, "move_history": List[str], "clients": List[WebSocket], "players": {client_id: color}}}
+games: Dict[
+    str, Dict] = {}  # {game_id: {"board": chess.Board, "move_history": List[str], "clients": List[WebSocket], "players": {client_id: color}}}
+
 
 class BoardState(BaseModel):
     fen: str
-    game_mode: str = "engine"  # "engine" or "minimax"
+    game_mode: str = "engine"  # fallback / default
+    white_ai: Optional[str] = None
+    black_ai: Optional[str] = None
+
 
 @app.post("/evalbar/")
 def eval_bar(board_state: BoardState):
     board = chess.Board(board_state.fen)
     eval = evaluate_board(board)
     return {"evaluation": eval}
+
 
 @app.post("/best-move/")
 def best_move(board_state: BoardState):
@@ -65,9 +72,11 @@ def best_move(board_state: BoardState):
     else:
         return {"error": "Invalid game mode. Choose 'engine' or 'minimax'."}
 
+
 @app.get("/")
 def root():
     return {"message": "Chess Engine API is running!"}
+
 
 def get_game(game_id: str) -> Dict:
     """Get or create a game."""
@@ -94,6 +103,7 @@ def get_game(game_id: str) -> Dict:
                 print(f"Error loading state for {game_id}: {e}")
     return games[game_id]
 
+
 async def save_game_state(game_id: str):
     """Save game state to disk."""
     if game_id not in games:
@@ -113,6 +123,7 @@ async def save_game_state(game_id: str):
         print(f"Saved state for game {game_id}: {game['board'].fen()}")
     except Exception as e:
         print(f"Error saving state for {game_id}: {e}")
+
 
 def get_game_status(game: Dict, game_id: str) -> str:
     """Update and return the game status."""
@@ -135,12 +146,13 @@ def get_game_status(game: Dict, game_id: str) -> str:
     print(f"Game {game_id} status updated to: {game['status']}")
     return game["status"]
 
+
 def validate_game_state(game: Dict, game_id: str):
     """Validate and fix game state to ensure one white and one black player max."""
     players = game["players"]
     white_count = sum(1 for color in players.values() if color == "white")
     black_count = sum(1 for color in players.values() if color == "black")
-    
+
     if white_count > 1 or black_count > 1:
         print(f"Invalid state in game {game_id}: {white_count} white, {black_count} black. Resetting players.")
         # Keep only the first white and first black player
@@ -157,6 +169,7 @@ def validate_game_state(game: Dict, game_id: str):
         game["players"] = new_players
         print(f"Fixed state for game {game_id}: {game['players']}")
 
+
 @app.get("/join-game/{game_id}")
 async def join_game(game_id: str):
     """Join a game and get its state."""
@@ -170,6 +183,7 @@ async def join_game(game_id: str):
         "status": game["status"]
     }
 
+
 @app.get("/game-state/{game_id}")
 async def get_game_state(game_id: str):
     """Retrieve game state."""
@@ -181,12 +195,14 @@ async def get_game_state(game_id: str):
         "status": game["status"]
     }
 
+
 @app.get("/waiting-games/")
 async def get_waiting_games():
     """List games with fewer than 2 players."""
     for game_id in games:
         validate_game_state(games[game_id], game_id)
     return {"games": [game_id for game_id, game in games.items() if len(game["players"]) < 2]}
+
 
 @app.websocket("/ws/chess/{game_id}")
 async def websocket_endpoint(websocket: WebSocket, game_id: str, client_id: str = None):
@@ -246,7 +262,8 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, client_id: str 
                     await websocket.send_json({"type": "error", "message": "Not your turn"})
                     continue
                 try:
-                    move = chess.Move.from_uci(data["from"] + data["to"] + (data.get("promotion", "q") if data.get("promotion") else ""))
+                    move = chess.Move.from_uci(
+                        data["from"] + data["to"] + (data.get("promotion", "q") if data.get("promotion") else ""))
                     if move not in game["board"].legal_moves:
                         print(f"Invalid move by client {client_id} in game {game_id}: {data}")
                         await websocket.send_json({"type": "error", "message": "Invalid move"})
@@ -360,3 +377,42 @@ async def debug_games():
         "status": v["status"],
         "client_count": len(v["clients"])
     } for k, v in games.items()}}
+
+
+# ai vs ai
+@app.post("/ai-vs-ai-step/")
+async def ai_vs_ai_step(board_state: BoardState):
+    board = chess.Board(board_state.fen)
+    moves = []
+
+    if not board.is_game_over():
+        current_ai = board_state.white_ai if board.turn == chess.WHITE else board_state.black_ai
+
+        if current_ai == "engine":
+            move = get_best_move(board)
+        elif current_ai == "lc0":
+            move = lc0_best_move(board)
+        elif current_ai == "minimax":
+            best_eval = float('-inf') if board.turn == chess.WHITE else float('inf')
+            move = None
+            for candidate in board.legal_moves:
+                board.push(candidate)
+                eval = minimax(board, 2)
+                board.pop()
+                if (board.turn == chess.WHITE and eval > best_eval) or \
+                        (board.turn == chess.BLACK and eval < best_eval):
+                    best_eval = eval
+                    move = candidate
+        else:
+            return {"error": f"Invalid AI type: {current_ai}"}
+
+        if move:
+            board.push(move)
+            moves.append(move.uci())
+
+    return {
+        "fen": board.fen(),
+        "moves": moves,
+        "game_over": board.is_game_over(),
+        "status": board.result(claim_draw=True)
+    }
