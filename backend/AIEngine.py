@@ -57,9 +57,27 @@ def get_best_move(board: chess.Board) -> chess.Move:
     result = engine.play(board, chess.engine.Limit(time=0.1))
     engine.quit()
     return result.move
+def is_endgame(board: chess.Board) -> bool:
+    non_kings = sum(1 for p in board.piece_map().values() if p.piece_type != chess.KING)
+    return non_kings <= 5 and board.castling_rights == 0
+
+tablebase = chess.syzygy.Tablebase()
+tablebase.add_directory(os.path.join(BASE_DIR, "tablebases"))
 
 def minimax(board: chess.Board, depth: int, alpha=float('-inf'), beta=float('inf')) -> float:
-    if board.is_checkmate() or board.is_stalemate() or depth == 0:
+    if board.is_checkmate(): 
+        return -9999 if board.turn == chess.WHITE else 9999
+    if board.is_stalemate() or board.is_insufficient_material() or board.can_claim_fifty_moves() or board.can_claim_threefold_repetition():
+        return 0
+    
+    if is_endgame(board):
+        try:
+            tb_result = tablebase.probe_wdl(board)
+            return tb_result * 10000  # Win/loss dominates evaluation
+        except KeyError:
+            pass  # No tablebase info available
+        
+    if depth == 0:
         return evaluate_board(board)
 
     if board.turn == chess.WHITE:
