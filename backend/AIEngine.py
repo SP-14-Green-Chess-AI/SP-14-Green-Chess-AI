@@ -60,9 +60,10 @@ def get_best_move(board: chess.Board) -> chess.Move:
 def is_endgame(board: chess.Board) -> bool:
     non_kings = sum(1 for p in board.piece_map().values() if p.piece_type != chess.KING)
     return non_kings <= 5 and board.castling_rights == 0
+from chess.syzygy import open_tablebase
 
-tablebase = chess.syzygy.Tablebase()
-tablebase.add_directory(os.path.join(BASE_DIR, "tablebases"))
+TB = open_tablebase("https://tablebase.lichess.org")
+
 
 def minimax(board: chess.Board, depth: int, alpha=float('-inf'), beta=float('inf')) -> float:
     if board.is_checkmate(): 
@@ -71,12 +72,11 @@ def minimax(board: chess.Board, depth: int, alpha=float('-inf'), beta=float('inf
         return 0
     
     if is_endgame(board):
-        try:
-            tb_result = tablebase.probe_wdl(board)
-            return tb_result * 10000  # Win/loss dominates evaluation
-        except KeyError:
-            pass  # No tablebase info available
-        
+            try:
+                wdl = TB.probe_wdl(board)    # use cached TB handle
+                return wdl * 10000           # win/loss dominates
+            except KeyError:
+                pass 
     if depth == 0:
         return evaluate_board(board)
 
