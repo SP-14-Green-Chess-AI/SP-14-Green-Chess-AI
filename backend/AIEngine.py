@@ -3,6 +3,8 @@ import sys
 import json
 import random
 import platform
+
+import requests
 import chess
 import chess.engine
 
@@ -57,95 +59,121 @@ def get_best_move(board: chess.Board) -> chess.Move:
     result = engine.play(board, chess.engine.Limit(time=0.1))
     engine.quit()
     return result.move
+
+
 def is_endgame(board: chess.Board) -> bool:
+    """Return True if the position has ≤7 non-king pieces."""
     non_kings = sum(1 for p in board.piece_map().values() if p.piece_type != chess.KING)
-    return non_kings <= 5 and board.castling_rights == 0
-from chess.syzygy import open_tablebase
+    return non_kings <= 7
 
-TB = open_tablebase("https://tablebase.lichess.org")
+from urllib.parse import quote
+def probe_wdl_tablebase(fen: str) -> int | None:
+    board = chess.Board(fen)
+    if not board.is_valid():
+        return None
+    board.castling_rights = 0
+    board.ep_square = None
+    clean_fen = board.fen()
 
+    if sum(1 for p in board.piece_map().values() if p.piece_type != chess.KING) > 7:
+        return None
 
-def minimax(board: chess.Board, depth: int, alpha=float('-inf'), beta=float('inf')) -> float:
-    if board.is_checkmate(): 
+    url = f"https://tablebase.lichess.ovh/standard?fen={quote(clean_fen)}"
+    try:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        cat = r.json().get("category", "draw")
+        return {"win": 1, "draw": 0, "loss": -1}.get(cat)
+    except:
+        return None
+    
+def minimax(board: chess.Board, depth: int,
+            alpha: float = float('-inf'), beta: float = float('inf')) -> float:
+    if board.is_checkmate():
         return -9999 if board.turn == chess.WHITE else 9999
-    if board.is_stalemate() or board.is_insufficient_material() or board.can_claim_fifty_moves() or board.can_claim_threefold_repetition():
+    if (board.is_stalemate() or board.is_insufficient_material() or
+        board.can_claim_fifty_moves() or board.can_claim_threefold_repetition()):
         return 0
+
     
     if is_endgame(board):
-            try:
-                wdl = TB.probe_wdl(board)    # use cached TB handle
-                return wdl * 10000           # win/loss dominates
-            except KeyError:
-                pass 
+        wdl = probe_wdl_tablebase(board)
+        if wdl is not None:
+            # Scale far beyond any static evaluation
+            return wdl * 10000
+
     if depth == 0:
         return evaluate_board(board)
 
-    if board.turn == chess.WHITE:
-        max_eval = float('-inf')
+    if board.turn == chess.WHITE:                     # maximising player
+        best = float('-inf')
         for move in board.legal_moves:
             board.push(move)
-            eval = minimax(board, depth - 1, alpha, beta)
+            best = max(best, minimax(board, depth - 1, alpha, beta))
             board.pop()
-            max_eval = max(max_eval, eval)
-            alpha = max(alpha, eval)
+            alpha = max(alpha, best)
             if beta <= alpha:
                 break
-        return max_eval
-    else:
-        min_eval = float('inf')
+        return best
+    else:                                              # minimising player
+        best = float('inf')
         for move in board.legal_moves:
             board.push(move)
-            eval = minimax(board, depth - 1, alpha, beta)
+            best = min(best, minimax(board, depth - 1, alpha, beta))
             board.pop()
-            min_eval = min(min_eval, eval)
-            beta = min(beta, eval)
+            beta = min(beta, best)
             if beta <= alpha:
                 break
-        return min_eval
+        return best
 
-# Piece-square tables
+
+
+MATERIAL_VALUES = {
+    chess.PAWN:   100,
+    chess.KNIGHT: 320,
+    chess.BISHOP: 330,
+    chess.ROOK:   500,
+    chess.QUEEN:  900,
+    chess.KING:   0,
+}
+
 PIECE_SQUARES = {
     chess.PAWN: [
         0, 0, 0, 0, 0, 0, 0, 0,
         5, 5, 5, -5, -5, 5, 5, 5,
         1, 1, 2, 3, 3, 2, 1, 1,
-        0.5, 0.5, 1, 2.5, 2.5, 1, 0.5, 0.5,
+        .5, .5, 1, 2.5, 2.5, 1, .5, .5,
         0, 0, 0, 2, 2, 0, 0, 0,
-        0.5, -0.5, -1, 0, 0, -1, -0.5, 0.5,
-        0.5, 1, 1, -2, -2, 1, 1, 0.5,
-        0, 0, 0, 0, 0, 0, 0, 0
+        .5, -.5, -1, 0, 0, -1, -.5, .5,
+        .5, 1, 1, -2, -2, 1, 1, .5,
+        0, 0, 0, 0, 0, 0, 0, 0,
     ],
     chess.KNIGHT: [
         -5, -4, -3, -3, -3, -3, -4, -5,
-        -4, -2, 0, 0.5, 0.5, 0, -2, -4,
-        -3, 0.5, 1, 1.5, 1.5, 1, 0.5, -3,
+        -4, -2, 0, .5, .5, 0, -2, -4,
+        -3, .5, 1, 1.5, 1.5, 1, .5, -3,
         -3, 0, 1.5, 2, 2, 1.5, 0, -3,
-        -3, 0.5, 1.5, 2, 2, 1.5, 0.5, -3,
+        -3, .5, 1.5, 2, 2, 1.5, .5, -3,
         -3, 0, 1, 1.5, 1.5, 1, 0, -3,
         -4, -2, 0, 0, 0, 0, -2, -4,
-        -5, -4, -3, -3, -3, -3, -4, -5
-    ]
-}
-
-# Material values
-MATERIAL_VALUES = {
-    chess.PAWN: 100,
-    chess.KNIGHT: 320,
-    chess.BISHOP: 330,
-    chess.ROOK: 500,
-    chess.QUEEN: 900,
-    chess.KING: 0
+        -5, -4, -3, -3, -3, -3, -4, -5,
+    ],
+    # Add more piece-square tables here if you want a stronger eval
 }
 
 def evaluate_board(board: chess.Board) -> float:
-    value = 0
-    for piece_type in MATERIAL_VALUES:
-        for square in board.pieces(piece_type, chess.WHITE):
-            value += MATERIAL_VALUES[piece_type]
-            if piece_type in PIECE_SQUARES:
-                value += PIECE_SQUARES[piece_type][square]
-        for square in board.pieces(piece_type, chess.BLACK):
-            value -= MATERIAL_VALUES[piece_type]
-            if piece_type in PIECE_SQUARES:
-                value -= PIECE_SQUARES[piece_type][chess.square_mirror(square)]
-    return value / 100.0
+    """Positive = advantage for White."""
+    total = 0.0
+    for pt, val in MATERIAL_VALUES.items():
+        # White pieces
+        for sq in board.pieces(pt, chess.WHITE):
+            total += val
+            if pt in PIECE_SQUARES:
+                total += PIECE_SQUARES[pt][sq]
+        # Black pieces (mirror the table)
+        for sq in board.pieces(pt, chess.BLACK):
+            total -= val
+            if pt in PIECE_SQUARES:
+                total -= PIECE_SQUARES[pt][chess.square_mirror(sq)]
+    return total / 100.0
+# --- IGNORE ---
