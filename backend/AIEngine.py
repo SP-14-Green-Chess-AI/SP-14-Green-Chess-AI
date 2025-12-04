@@ -172,3 +172,4 @@ def evaluate_board(board: chess.Board) -> float:
             if pt in PIECE_SQUARES:
                 total -= PIECE_SQUARES[pt][chess.square_mirror(sq)]
     return total / 100.0
+# --- IGNORE ---

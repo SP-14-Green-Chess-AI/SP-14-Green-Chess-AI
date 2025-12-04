@@ -7,6 +7,10 @@ import { boardThemes, getCustomPieces } from "./components/boardThemes";
 import { Bishop, Rook, Knight, Queen, King, Pawn } from "./components/Pieces";
 import { DefaultKing, DefaultQueen, DefaultRook, DefaultBishop, DefaultKnight, DefaultPawn } from "./components/DefaultPieces";
 import './App.css';
+import { Routes, Route,Link, useLocation } from 'react-router-dom';
+import About from './components/About';
+import NavBar from './components/NavBar';
+
 
 export default function App() {
   const backendUrl = "http://localhost:8000";
@@ -359,7 +363,9 @@ export default function App() {
           justifyContent: "Left",
           gap: "12px",
           padding: "16px 0",
-          borderBottom: "1px solid #ccc"
+          borderBottom: "1px solid #ccc",
+          position: "relative",
+          zIndex: 100
         }}
       >
         <button
@@ -385,6 +391,23 @@ export default function App() {
         </button>
 
         <h1 style={{ margin: 0 }}>Chess AI App</h1>
+      
+      </div>
+
+  {/* Navigation (kept separate from header container so it sits below the header image/title) */}
+  <NavBar />
+
+      <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "12px" }}>
+        <Routes>
+          {/* Main chess game */}
+          <Route path="/" />
+
+          <Route path="/about" element={<About />} />
+
+          {/* These two make GitHub Pages work perfectly */}
+          <Route path="/SP-14-Green-Chess-AI" />
+          <Route path="/SP-14-Green-Chess-AI/" />
+        </Routes>
       </div>
 
       {/* Top-Right Multiplayer Status Box */}
