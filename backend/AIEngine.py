@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 import random
 import platform
@@ -7,6 +6,8 @@ import platform
 import requests
 import chess
 import chess.engine
+from typing import Optional
+from urllib.parse import quote
 
 # Base directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -60,14 +61,12 @@ def get_best_move(board: chess.Board) -> chess.Move:
     engine.quit()
     return result.move
 
-
 def is_endgame(board: chess.Board) -> bool:
     """Return True if the position has ≤7 non-king pieces."""
     non_kings = sum(1 for p in board.piece_map().values() if p.piece_type != chess.KING)
     return non_kings <= 7
 
-from urllib.parse import quote
-def probe_wdl_tablebase(fen: str) -> int | None:
+def probe_wdl_tablebase(fen: str) -> Optional[int]:
     board = chess.Board(fen)
     if not board.is_valid():
         return None
@@ -84,9 +83,9 @@ def probe_wdl_tablebase(fen: str) -> int | None:
         r.raise_for_status()
         cat = r.json().get("category", "draw")
         return {"win": 1, "draw": 0, "loss": -1}.get(cat)
-    except:
+    except requests.RequestException:
         return None
-    
+
 def minimax(board: chess.Board, depth: int,
             alpha: float = float('-inf'), beta: float = float('inf')) -> float:
     if board.is_checkmate():
@@ -95,9 +94,8 @@ def minimax(board: chess.Board, depth: int,
         board.can_claim_fifty_moves() or board.can_claim_threefold_repetition()):
         return 0
 
-    
     if is_endgame(board):
-        wdl = probe_wdl_tablebase(board)
+        wdl = probe_wdl_tablebase(board.fen())  # FIXED: pass FEN string
         if wdl is not None:
             # Scale far beyond any static evaluation
             return wdl * 10000
@@ -105,7 +103,7 @@ def minimax(board: chess.Board, depth: int,
     if depth == 0:
         return evaluate_board(board)
 
-    if board.turn == chess.WHITE:                     # maximising player
+    if board.turn == chess.WHITE:  # maximising player
         best = float('-inf')
         for move in board.legal_moves:
             board.push(move)
@@ -115,7 +113,7 @@ def minimax(board: chess.Board, depth: int,
             if beta <= alpha:
                 break
         return best
-    else:                                              # minimising player
+    else:  # minimising player
         best = float('inf')
         for move in board.legal_moves:
             board.push(move)
@@ -125,8 +123,6 @@ def minimax(board: chess.Board, depth: int,
             if beta <= alpha:
                 break
         return best
-
-
 
 MATERIAL_VALUES = {
     chess.PAWN:   100,
@@ -176,4 +172,3 @@ def evaluate_board(board: chess.Board) -> float:
             if pt in PIECE_SQUARES:
                 total -= PIECE_SQUARES[pt][chess.square_mirror(sq)]
     return total / 100.0
-# --- IGNORE ---

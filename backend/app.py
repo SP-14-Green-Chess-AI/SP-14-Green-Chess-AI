@@ -2,7 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, stat
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Optional
-
+import random
 import json
 import os
 import asyncio
@@ -46,7 +46,7 @@ def best_move(board_state: BoardState):
         if opening_move:
             return {"best_move": opening_move.uci()}
     if board_state.game_mode == "minimax":
-        depth = 3
+        depth = 2
         if board.turn == chess.WHITE:
             best_eval = float('-inf')
         else:
@@ -379,36 +379,84 @@ async def debug_games():
     } for k, v in games.items()}}
 
 
-# ai vs ai
 @app.post("/ai-vs-ai-step/")
 async def ai_vs_ai_step(board_state: BoardState):
     board = chess.Board(board_state.fen)
     moves = []
+
+    if board.is_repetition(3) or board.can_claim_threefold_repetition():
+        print("Threefold repetition detected — declaring draw")
+        return {
+            "fen": board.fen(),
+            "moves": [],
+            "game_over": True,
+            "status": "1/2-1/2"
+        }
+
+    if board.can_claim_fifty_moves():
+        print("50-move rule triggered — declaring draw")
+        return {
+            "fen": board.fen(),
+            "moves": [],
+            "game_over": True,
+            "status": "1/2-1/2"
+        }
+
+    if board.is_insufficient_material():
+        print("Insufficient material — declaring draw")
+        return {
+            "fen": board.fen(),
+            "moves": [],
+            "game_over": True,
+            "status": "1/2-1/2"
+        }
 
     if not board.is_game_over():
         current_ai = board_state.white_ai if board.turn == chess.WHITE else board_state.black_ai
 
         if current_ai == "engine":
             move = get_best_move(board)
+
         elif current_ai == "lc0":
             move = lc0_best_move(board)
+
         elif current_ai == "minimax":
             best_eval = float('-inf') if board.turn == chess.WHITE else float('inf')
             move = None
+            turn = board.turn
+            last_move = board.peek().uci() if board.move_stack else None
+
             for candidate in board.legal_moves:
                 board.push(candidate)
                 eval = minimax(board, 2)
                 board.pop()
-                if (board.turn == chess.WHITE and eval > best_eval) or \
-                        (board.turn == chess.BLACK and eval < best_eval):
+
+                print(f"Evaluating {candidate.uci()} → {eval}")
+
+                if turn == chess.WHITE and eval >= best_eval:
                     best_eval = eval
                     move = candidate
+                elif turn == chess.BLACK and eval <= best_eval:
+                    best_eval = eval
+                    move = candidate
+
+            # Fallback if no move selected
+            if move is None:
+                print("Minimax failed to evaluate — choosing fallback move")
+                move = random.choice(list(board.legal_moves))
+
+            if move.uci() == last_move:
+                print("Repeat move detected — selecting alternative")
+                alternatives = [m for m in board.legal_moves if m.uci() != last_move]
+                if alternatives:
+                    move = random.choice(alternatives)
+
         else:
             return {"error": f"Invalid AI type: {current_ai}"}
 
-        if move:
-            board.push(move)
-            moves.append(move.uci())
+        board.push(move)
+        moves.append(move.uci())
+        print("Selected move:", move.uci())
 
     return {
         "fen": board.fen(),

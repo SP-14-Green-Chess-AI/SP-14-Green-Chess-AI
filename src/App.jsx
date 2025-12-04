@@ -189,7 +189,7 @@ export default function App() {
         if (!aiRunningRef.current) break;
 
         // Delay between moves. Time in ms
-        await new Promise(res => setTimeout(res, 300));
+        await new Promise(res => setTimeout(res, 200));
     }
 
     setAiRunning(false);
@@ -211,38 +211,60 @@ export default function App() {
   };
 
   function onDrop(source, target) {
-    if (gameStatus !== "ongoing" && playMode === "multiplayer") {
-      console.log("Game over:", gameStatus);
-      return false;
-    }
+  if (gameStatus !== "ongoing" && playMode === "multiplayer") {
+    console.log("Game over:", gameStatus);
+    return false;
+  }
 
-    if (playMode === "multiplayer" && !playerColor) {
-      console.log("No player color assigned");
-      return false;
-    }
+  if (playMode === "multiplayer" && !playerColor) {
+    console.log("No player color assigned");
+    return false;
+  }
 
-    if (playMode === "multiplayer") {
-      const turn = gameRef.current.turn();
-      if ((turn === "w" && playerColor !== "white") || (turn === "b" && playerColor !== "black")) {
-        console.log("Not your turn");
-        return false;
-      }
-    }
-
-    try {
-      const move = gameRef.current.move({ from: source, to: target, promotion: "q" });
-      if (!move) return false;
-      setFen(gameRef.current.fen());
-      setMoveHistory((prev) => [...prev, move.san]);
-      if (playMode === "multiplayer" && wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: "move", from: source, to: target }));
-      }
-      return true;
-    } catch (err) {
-      console.error("Invalid move:", err);
+  if (playMode === "multiplayer") {
+    const turn = gameRef.current.turn();
+    if ((turn === "w" && playerColor !== "white") || (turn === "b" && playerColor !== "black")) {
+      console.log("Not your turn");
       return false;
     }
   }
+
+  try {
+    const piece = gameRef.current.get(source);
+    const isPromotion = piece?.type === "p" && (target[1] === "8" || target[1] === "1");
+
+    console.log("Attempting move:", { from: source, to: target, promotion: isPromotion ? "q" : undefined });
+    console.log("Board before move:", gameRef.current.fen());
+
+    const move = gameRef.current.move({
+      from: source,
+      to: target,
+      ...(isPromotion && { promotion: "q" })
+    });
+
+    if (!move) {
+      console.warn("Move rejected by chess.js:", { from: source, to: target });
+      return false;
+    }
+
+    setFen(gameRef.current.fen());
+    setMoveHistory((prev) => [...prev, move.san]);
+
+    if (playMode === "multiplayer" && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: "move",
+        from: source,
+        to: target,
+        ...(isPromotion && { promotion: "q" })
+      }));
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Invalid move:", err);
+    return false;
+  }
+}
 
   function resetGame() {
     // Stop AI if running
@@ -405,8 +427,8 @@ export default function App() {
             <div>
               <label>White AI: </label>
               <select value={whiteAI} onChange={(e) => setWhiteAI(e.target.value)}>
-                <option value="engine">Stockfish</option>
-                <option value="minimax">Minimax</option>
+                <option value="engine">Minimax</option>
+                <option value="minimax">Stockfish</option>
                 {window.location.hostname === "localhost" && (
                   <option value="lc0">Leela</option>
                 )}
