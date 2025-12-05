@@ -149,7 +149,7 @@ export default function About() {
                         </div>
                     </div>                    <div style={biosStyle}>
                         <img
-                            src="docs/J.png"
+                            src="docs/j.png"
                             alt="Jason Nguyen"
                             style={avatarStyle}
                         />
@@ -159,7 +159,7 @@ export default function About() {
                         </div>
                     </div>                    <div style={biosStyle}>
                         <img
-                            src="docs/C.png"
+                            src="docs/c.png"
                             alt="Jason Nguyen"
                             style={avatarStyle}
                         />
