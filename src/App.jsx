@@ -13,7 +13,7 @@ import NavBar from './components/NavBar';
 
 
 export default function App() {
-  const backendUrl = "http://localhost:8000";
+  const backendUrl = window.location.hostname === 'localhost' ?{localhost: "http://localhost:8000"} : {production: "https://sp-14-green-chess-ai.onrender.com"}.production;
   const gameRef = useRef(new Chess());
   const wsRef = useRef(null);
   const aiRunningRef = useRef(false);
