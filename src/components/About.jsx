@@ -139,7 +139,7 @@ export default function About() {
 
                     <div style={biosStyle}>
                         <img
-                            src="src/docs/M.png"
+                            src="docs/M.png"
                             alt="Jason Nguyen"
                             style={avatarStyle}
                         />
@@ -149,7 +149,7 @@ export default function About() {
                         </div>
                     </div>                    <div style={biosStyle}>
                         <img
-                            src="src/docs/J.png"
+                            src="docs/J.png"
                             alt="Jason Nguyen"
                             style={avatarStyle}
                         />
@@ -159,7 +159,7 @@ export default function About() {
                         </div>
                     </div>                    <div style={biosStyle}>
                         <img
-                            src="src/docs/C.png"
+                            src="docs/C.png"
                             alt="Jason Nguyen"
                             style={avatarStyle}
                         />
@@ -171,7 +171,7 @@ export default function About() {
 
                     <div style={{ ...biosStyle, marginTop: 8 }}>
                         <img
-                            src="src/docs/ch.png"
+                            src="docs/ch.png"
                             alt="Jason Nguyen"
                             style={avatarStyle}
                         />
@@ -187,7 +187,7 @@ export default function About() {
 
                     <div style={linksListStyle}>
                         <a
-                            href="src/docs/Project_Report.pdf"
+                            href="docs/Project_Report.pdf"
                             target="_blank"
                             rel="noopener noreferrer"
                             style={linkStyle}
@@ -195,7 +195,7 @@ export default function About() {
                             Project Report (PDF)
                         </a>
                         <a 
-                            href="src/docs/SP-14-Green-Chess-AI-Project-Plan-03.pdf"
+                            href="docs/SP-14-Green-Chess-AI-Project-Plan-03.pdf"
                             target="_blank"
                             rel="noopener noreferrer"
                             style={linkStyle}
@@ -203,7 +203,7 @@ export default function About() {
                             Project Plan Document (PDF)
                         </a>
                         <a
-                            href="src/docs/SP-14-Green-Chess-Ai-Design.pdf"
+                            href="docs/SP-14-Green-Chess-Ai-Design.pdf"
                             target="_blank"
                             rel="noopener noreferrer"
                             style={linkStyle}
@@ -212,7 +212,7 @@ export default function About() {
                         </a>
 
                         <a
-                            href="src/docs/Requirements_and_Testplan.pdf"
+                            href="docs/Requirements_and_Testplan.pdf"
                             target="_blank"
                             rel="noopener noreferrer"
                             style={linkStyle}
@@ -221,7 +221,7 @@ export default function About() {
                         </a>
 
                         <a
-                            href="src/docs/Final_Presentation_Slides.pdf"
+                            href="docs/Final_Presentation_Slides.pdf"
                             target="_blank"
                             rel="noopener noreferrer"
                             style={linkStyle}
@@ -229,7 +229,7 @@ export default function About() {
                             Presentation Slides (PDF)
                         </a>
                         <a
-                            href="src/docs/STR-14-Green-Chess-AI-Requirements-and-Testplan.pdf"
+                            href="docs/STR-14-Green-Chess-AI-Requirements-and-Testplan.pdf"
                             target="_blank"
                             rel="noopener noreferrer"
                             style={linkStyle}
